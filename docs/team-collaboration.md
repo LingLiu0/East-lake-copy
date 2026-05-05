@@ -39,6 +39,15 @@ GitHub → Settings → Notifications：
 
 ## 三、知识库协作
 
+> 知识库采用 Git 分支管理模式，详见 [Git 工作流指南](git-workflow.md)
+
+### 角色分工
+
+| 角色 | 分支权限 | 职责 |
+|------|----------|------|
+| **Maintainer** | main 直接写入 | 审核合并、维护结构 |
+| **Contributor** | 分支 + PR | 创建分支、提交内容 |
+
 ### 初始化
 
 ```bash

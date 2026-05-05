@@ -33,6 +33,7 @@
 
 ## 新成员必读
 
+- [[docs/git-workflow|Git 工作流指南]] - 分支管理、PR 流程、审核标准
 - [[docs/team-collaboration|团队协作指南]] - 如何协作、任务流转、常用命令
 - [[docs/quick-start|快速入门]] - 5 分钟上手配置
 
@@ -47,18 +48,15 @@
 3. **Front Matter**：必须有 title, tags, created
 4. **文件命名**：英文短横线命名，如 `concept-name.md`
 
-### 同步方式
+### 协作模式
 
-```bash
-# 日常：自动同步（Obsidian Git 插件）
-# 重要变更：PR 审核
+| 内容类型 | 流程 | 说明 |
+|----------|------|------|
+| 日常笔记 | 直接提交 | 会议记录、个人笔记 |
+| 核心内容 | PR 审核 | 概念文档、决策记录 |
+| 结构变更 | PR + 讨论 | 目录调整、模板修改 |
 
-# 手动同步
-git pull
-git add .
-git commit -m "update: your changes"
-git push
-```
+详见 [[docs/git-workflow|Git 工作流指南]]
 
 ### 模板
 
