@@ -1,0 +1,21 @@
+# Obsidian 个人配置
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/graph.json
+.obsidian/plugins/obsidian-git/data.json
+
+# 系统文件
+.DS_Store
+.Trash-*
+*.tmp
+*.swp
+*~
+
+# 临时文件
+.tmp/
+.trash/
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*

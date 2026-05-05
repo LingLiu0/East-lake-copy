@@ -1,0 +1,73 @@
+name: Build Knowledge Index
+
+on:
+  push:
+    branches: [main]
+    paths: ['**.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Knowledge Graph
+        run: |
+          # 提取所有双向链接关系
+          echo "# 知识图谱" > knowledge-graph.md
+          echo "" >> knowledge-graph.md
+          echo "## 链接关系" >> knowledge-graph.md
+          echo "" >> knowledge-graph.md
+          echo '```mermaid' >> knowledge-graph.md
+          echo "graph LR" >> knowledge-graph.md
+
+          # 解析所有 markdown 文件中的链接
+          find . -name "*.md" -not -path "./.git/*" | while read file; do
+            filename=$(basename "$file" .md)
+            grep -oE '\[\[([^\]]+)\]\]' "$file" | sed 's/\[\[\(.*\)\]\]/\1/' | while read link; do
+              echo "    $filename --> $link" >> knowledge-graph.md
+            done
+          done
+
+          echo '```' >> knowledge-graph.md
+
+          # 生成标签索引
+          echo "" >> knowledge-graph.md
+          echo "## 标签索引" >> knowledge-graph.md
+          echo "" >> knowledge-graph.md
+
+          find . -name "*.md" -not -path "./.git/*" -exec grep -l "^tags:" {} \; | while read file; do
+            filename=$(basename "$file" .md)
+            tags=$(grep "^tags:" "$file" | head -1)
+            echo "- **$filename**: $tags" >> knowledge-graph.md
+          done
+
+      - name: Generate Statistics
+        run: |
+          echo "" >> knowledge-graph.md
+          echo "## 统计信息" >> knowledge-graph.md
+          echo "" >> knowledge-graph.md
+
+          total_files=$(find . -name "*.md" -not -path "./.git/*" | wc -l)
+          total_links=$(grep -rE '\[\[([^\]]+)\]\]' . --include="*.md" | wc -l)
+
+          echo "- 总文档数: $total_files" >> knowledge-graph.md
+          echo "- 总链接数: $total_links" >> knowledge-graph.md
+          echo "- 更新时间: $(date '+%Y-%m-%d %H:%M:%S')" >> knowledge-graph.md
+
+      - name: Commit Changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add knowledge-graph.md
+          git diff --quiet && git diff --staged --quiet || git commit -m "docs: update knowledge graph"
+          git push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-graph
+          path: knowledge-graph.md

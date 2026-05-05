@@ -1,0 +1,8 @@
+{
+  "attachmentFolderPath": "attachments",
+  "newFileLocation": "current",
+  "defaultViewMode": "preview",
+  "useMarkdownLinks": false,
+  "showUnsupportedFiles": true,
+  "promptDelete": false
+}
