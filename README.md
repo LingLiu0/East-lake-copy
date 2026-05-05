@@ -1,15 +1,15 @@
-# 团队知识库
+# 东湖智库 (East-lake)
 
 > 基于 **llm-wiki** 思想构建：极简、AI 友好、渐进式增长
 
 ## 🎯 项目简介
 
-本知识库用于团队知识管理、协作和分享，采用纯 Markdown 格式，支持双向链接，便于 AI 理解和检索。
+东湖智库是团队知识管理平台，采用纯 Markdown 格式，支持双向链接，便于 AI 理解和检索。
 
 ## 📁 目录结构
 
 ```
-knowledge-base/
+East-lake/
 ├── index.md           # 知识地图入口
 ├── concepts/          # 原子化概念
 ├── projects/          # 项目文档
@@ -25,14 +25,14 @@ knowledge-base/
 
 ```bash
 # Clone 到你的 Obsidian vault 目录
-git clone https://github.com/huangtao900103/knowledge-base.git
+git clone https://github.com/huangtao900103/East-lake.git
 ```
 
 ### 2. 在 Obsidian 中打开
 
 1. 打开 Obsidian
 2. 选择 "打开文件夹为仓库"
-3. 选择 clone 的 `knowledge-base` 目录
+3. 选择 clone 的 `East-lake` 目录
 
 ### 3. 安装插件
 

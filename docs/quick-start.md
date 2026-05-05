@@ -8,8 +8,8 @@
 
 ```bash
 # Clone 到本地
-git clone https://github.com/huangtao900103/knowledge-base.git
-cd knowledge-base
+git clone https://github.com/huangtao900103/East-lake.git
+cd East-lake
 ```
 
 #### 2. 安装 Obsidian
