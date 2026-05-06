@@ -1,0 +1,148 @@
+name: Daily Knowledge Summary
+
+on:
+  schedule:
+    # 每天北京时间 8:00 (UTC 0:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      period:
+        description: 'Summary period'
+        required: false
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - weekly
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  generate-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Recent Changes
+        id: changes
+        run: |
+          if [[ "${{ github.event.inputs.period }}" == "weekly" ]] || [[ "${{ github.event.inputs.period }}" == "" && "$(date +%u)" == "1" ]]; then
+            # Weekly - last 7 days
+            since_date=$(date -d '7 days ago' +%Y-%m-%d)
+            echo "period=weekly" >> $GITHUB_OUTPUT
+          else
+            # Daily - last 24 hours
+            since_date=$(date -d 'yesterday' +%Y-%m-%d)
+            echo "period=daily" >> $GITHUB_OUTPUT
+          fi
+
+          echo "since=$since_date" >> $GITHUB_OUTPUT
+
+          # Get changed files
+          git log --since="$since_date 00:00:00" --name-only --pretty=format:"" | grep "\.md$" | sort -u > changed_files.txt
+
+          # Count changes
+          added=$(git log --since="$since_date 00:00:00" --diff-filter=A --name-only --pretty=format:"" | grep "\.md$" | wc -l)
+          modified=$(git log --since="$since_date 00:00:00" --diff-filter=M --name-only --pretty=format:"" | grep "\.md$" | wc -l)
+          deleted=$(git log --since="$since_date 00:00:00" --diff-filter=D --name-only --pretty=format:"" | grep "\.md$" | wc -l)
+
+          echo "added=$added" >> $GITHUB_OUTPUT
+          echo "modified=$modified" >> $GITHUB_OUTPUT
+          echo "deleted=$deleted" >> $GITHUB_OUTPUT
+          echo "total=$(($added + $modified))" >> $GITHUB_OUTPUT
+
+      - name: Generate Summary Content
+        id: content
+        run: |
+          added_files=$(git log --since="${{ steps.changes.outputs.since }} 00:00:00" --diff-filter=A --name-only --pretty=format:"%h %s" | grep "\.md$")
+          modified_files=$(git log --since="${{ steps.changes.outputs.since }} 00:00:00" --diff-filter=M --name-only --pretty=format:"%h %s" | grep "\.md$")
+
+          # Build summary
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          cat <<SUMMARY
+          ## 知识库变更摘要
+
+          - **周期**: ${{ steps.changes.outputs.period }}
+          - **时间范围**: ${{ steps.changes.outputs.since }} 至今
+          - **新增文档**: ${{ steps.changes.outputs.added }}
+          - **修改文档**: ${{ steps.changes.outputs.modified }}
+          - **删除文档**: ${{ steps.changes.outputs.deleted }}
+
+          ### 新增文档
+
+          $added_files
+
+          ### 修改文档
+
+          $modified_files
+
+          ---
+          *由 AI 自动生成 - $(date '+%Y-%m-%d %H:%M:%S')*
+          SUMMARY
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Summary File
+        run: |
+          mkdir -p reports
+
+          if [[ "${{ steps.changes.outputs.period }}" == "weekly" ]]; then
+            filename="weekly-summary-$(date +%Y-%m-%d).md"
+          else
+            filename="daily-summary-$(date +%Y-%m-%d).md"
+          fi
+
+          cat > "reports/$filename" <<EOF
+          # 知识库摘要 - $(date '+%Y-%m-%d')
+
+          ## 变更统计
+
+          | 类型 | 数量 |
+          |------|------|
+          | 新增 | ${{ steps.changes.outputs.added }} |
+          | 修改 | ${{ steps.changes.outputs.modified }} |
+          | 删除 | ${{ steps.changes.outputs.deleted }} |
+
+          ## 详细变更
+
+          ### 新增文档
+          $(git log --since="${{ steps.changes.outputs.since }} 00:00:00" --diff-filter=A --name-only --pretty=format:"- [[%f|%n]] (%h)" 2>/dev/null | grep "\.md$" || echo "无")
+
+          ### 修改文档
+          $(git log --since="${{ steps.changes.outputs.since }} 00:00:00" --diff-filter=M --name-only --pretty=format:"- [[%f|%n]] (%h)" 2>/dev/null | grep "\.md$" || echo "无")
+
+          ---
+          *生成时间: $(date -u +'%Y-%m-%d %H:%M:%S UTC')*
+          EOF
+
+          echo "filename=$filename" >> $GITHUB_OUTPUT
+
+      - name: Commit Summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/
+          git diff --quiet && git diff --staged --quiet || git commit -m "docs: add $(echo ${{ steps.changes.outputs.period }}) summary $(date '+%Y-%m-%d')"
+          git push
+
+      - name: Notify via Issue
+        if: steps.changes.outputs.total > 0
+        run: |
+          gh issue create \
+            --title "📚 知识库摘要 - $(date '+%Y-%m-%d')" \
+            --body "## ${{ steps.changes.outputs.period }} 摘要
+
+          - 新增: ${{ steps.changes.outputs.added }} 篇
+          - 修改: ${{ steps.changes.outputs.modified }} 篇
+          - 删除: ${{ steps.changes.outputs.deleted }} 篇
+
+          [查看详细报告](reports/${{ steps.content.outputs.filename }})
+
+          ---
+          *由 AI 自动生成*" \
+            --label "report,knowledge-base"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -135,6 +135,36 @@ claude
 - 标签索引
 - 统计信息
 
+### AI 文档自动分析
+
+当 `research/` 目录下文档变更时，AI 自动：
+- 识别文档类别（政策解读/技术分析/专项课题/领导拜访等）
+- 生成摘要和关键要点
+- 提取标签和 FAQ
+- 更新 front matter
+
+### 定时知识摘要
+
+每日/每周自动生成知识库变更摘要，保存到 `reports/` 目录
+
+### 外部 API 服务
+
+提供 REST API 供外部系统调用（需部署）：
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/search` | POST | 语义搜索 |
+| `/graph` | GET | 知识图谱 |
+| `/graph/mermaid` | GET | Mermaid 格式图谱 |
+| `/stats` | GET | 统计信息 |
+
+部署方式：
+```bash
+cd api
+pip install -r requirements.txt
+python main.py
+```
+
 ## 📚 相关链接
 
 - [llm-wiki 思想](concepts/llm-wiki.md)

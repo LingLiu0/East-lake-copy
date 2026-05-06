@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths: ['**.md']
   workflow_dispatch:
+    inputs:
+      incremental:
+        description: 'Incremental update only'
+        required: false
+        default: 'true'
+        type: boolean
 
 permissions:
   contents: write
@@ -14,10 +20,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Generate Knowledge Graph
+      - name: Detect Changed Files
+        id: changed
         run: |
-          # 提取所有双向链接关系
+          if [[ "${{ github.event.inputs.incremental }}" == "false" ]]; then
+            echo "mode=full" >> $GITHUB_OUTPUT
+            echo "all" > changed_files.txt
+          else
+            echo "mode=incremental" >> $GITHUB_OUTPUT
+            # Get changed files compared to last commit
+            git diff --name-only HEAD~1 HEAD -- '**.md' > changed_files.txt || echo "" > changed_files.txt
+            cat changed_files.txt
+          fi
+
+      - name: Update Knowledge Graph (Incremental)
+        if: steps.changed.outputs.mode == 'incremental'
+        run: |
+          # Read changed files
+          changed_files=$(cat changed_files.txt)
+
+          if [ -z "$changed_files" ]; then
+            echo "No markdown files changed, skipping update"
+            exit 0
+          fi
+
+          echo "Changed files: $changed_files"
+
+          # Read existing knowledge graph if exists
+          if [ -f knowledge-graph.md ]; then
+            cp knowledge-graph.md knowledge-graph.backup.md
+          fi
+
+          # Rebuild knowledge graph with incremental updates
           echo "# 知识图谱" > knowledge-graph.md
           echo "" >> knowledge-graph.md
           echo "## 链接关系" >> knowledge-graph.md
@@ -25,24 +62,44 @@ jobs:
           echo '```mermaid' >> knowledge-graph.md
           echo "graph LR" >> knowledge-graph.md
 
-          # 解析所有 markdown 文件中的链接
+          # Parse all markdown files (need full graph for accurate links)
           find . -name "*.md" -not -path "./.git/*" | while read file; do
             filename=$(basename "$file" .md)
-            grep -oE '\[\[([^\]]+)\]\]' "$file" | sed 's/\[\[\(.*\)\]\]/\1/' | while read link; do
+            grep -oE '\[\[([^\]]+)\]\]' "$file" 2>/dev/null | sed 's/\[\[\(.*\)\]\]/\1/' | while read link; do
               echo "    $filename --> $link" >> knowledge-graph.md
             done
           done
 
           echo '```' >> knowledge-graph.md
 
-          # 生成标签索引
+      - name: Update Knowledge Graph (Full)
+        if: steps.changed.outputs.mode == 'full'
+        run: |
+          echo "# 知识图谱" > knowledge-graph.md
+          echo "" >> knowledge-graph.md
+          echo "## 链接关系" >> knowledge-graph.md
+          echo "" >> knowledge-graph.md
+          echo '```mermaid' >> knowledge-graph.md
+          echo "graph LR" >> knowledge-graph.md
+
+          find . -name "*.md" -not -path "./.git/*" | while read file; do
+            filename=$(basename "$file" .md)
+            grep -oE '\[\[([^\]]+)\]\]' "$file" 2>/dev/null | sed 's/\[\[\(.*\)\]\]/\1/' | while read link; do
+              echo "    $filename --> $link" >> knowledge-graph.md
+            done
+          done
+
+          echo '```' >> knowledge-graph.md
+
+      - name: Generate Tag Index
+        run: |
           echo "" >> knowledge-graph.md
           echo "## 标签索引" >> knowledge-graph.md
           echo "" >> knowledge-graph.md
 
           find . -name "*.md" -not -path "./.git/*" -exec grep -l "^tags:" {} \; | while read file; do
             filename=$(basename "$file" .md)
-            tags=$(grep "^tags:" "$file" | head -1)
+            tags=$(grep "^tags:" "$file" | head -1 | sed 's/tags: //')
             echo "- **$filename**: $tags" >> knowledge-graph.md
           done
 
@@ -53,18 +110,29 @@ jobs:
           echo "" >> knowledge-graph.md
 
           total_files=$(find . -name "*.md" -not -path "./.git/*" | wc -l)
-          total_links=$(grep -rE '\[\[([^\]]+)\]\]' . --include="*.md" | wc -l)
+          total_links=$(grep -rE '\[\[([^\]]+)\]\]' . --include="*.md" 2>/dev/null | wc -l)
 
           echo "- 总文档数: $total_files" >> knowledge-graph.md
           echo "- 总链接数: $total_links" >> knowledge-graph.md
           echo "- 更新时间: $(date '+%Y-%m-%d %H:%M:%S')" >> knowledge-graph.md
+
+          # List changed files
+          changed_count=$(wc -l < changed_files.txt)
+          if [ "$changed_count" -gt 0 ] && [ "$changed_count" -lt 100 ]; then
+            echo "" >> knowledge-graph.md
+            echo "## 最近更新" >> knowledge-graph.md
+            echo "" >> knowledge-graph.md
+            cat changed_files.txt | while read file; do
+              echo "- $file" >> knowledge-graph.md
+            done
+          fi
 
       - name: Commit Changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add knowledge-graph.md
-          git diff --quiet && git diff --staged --quiet || git commit -m "docs: update knowledge graph"
+          git diff --quiet && git diff --staged --quiet || git commit -m "docs: update knowledge graph $(date '+%Y-%m-%d')"
           git push
 
       - uses: actions/upload-artifact@v4
