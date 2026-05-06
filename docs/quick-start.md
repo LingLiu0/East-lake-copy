@@ -1,208 +1,164 @@
-git clone https://github.com/huangtao900103/East-lake.git
+# East-lake 快速入门指南
 
-# 团队快速入门指南
+> 5 分钟快速上手团队 AI 知识库
 
-## 🚀 5 分钟上手
+---
 
-### 一、知识库配置
+## 一、本地运行
 
-#### 1. Clone 仓库
+### 1. 克隆仓库
 
 ```bash
-# Clone 到本地
-git clone https://github.com/huangtao900103/East-lake.git
+git clone https://github.com/你的仓库/East-lake.git
 cd East-lake
 ```
 
-#### 2. 安装 Obsidian
-
-下载地址：https://obsidian.md/download
-
-#### 3. 打开知识库
-
-1. 启动 Obsidian
-2. 点击「打开文件夹作为仓库」
-3. 选择 `East-lake` 目录
-
-#### 4. 安装插件
-
-设置 → 第三方插件 → 关闭安全模式 → 浏览：
-
-| 插件 | 用途 |
-|------|------|
-| **Obsidian Git** | 自动同步（必装） |
-| Templater | 模板插入 |
-| Dataview | 数据查询 |
-
-#### 5. 配置 Obsidian Git
-
-```
-设置 → Obsidian Git：
-- 自动备份间隔：10 分钟
-- 自动拉取间隔：10 分钟
-```
-
----
-
-### 二、AI集成与自动化建议
-
-1. **AI 检索与问答**：可将 Markdown 文档定期分块（chunking），生成 embedding，存入向量数据库，结合 RAG 技术实现智能检索与问答。
-2. **多格式文件支持**：通过脚本自动将 Word、PPT、PDF 等文件转为 Markdown 或纯文本，纳入知识库统一管理。
-3. **自动摘要与推送**：AI 可定期分析变更，自动生成知识摘要、推送更新通知。
-
----
-
-### 三、团队协作建议
-
-1. 所有内容均按模板（见 templates/）填写，保持结构统一。
-2. 建议每个主目录维护 index.md，自动/手动汇总子内容。
-3. 多人协作时建议使用分支和 Pull Request，便于审核和追溯。
-4. 通过 Git 进行版本管理，建议每次修改后提交并推送。
-```
-
----
-
-### 二、任务管理使用
-
-#### 1. 创建任务
-
-访问 https://github.com/huangtao900103/team-tasks/issues/new/choose
-
-选择模板：
-- 🐛 Bug 报告
-- ✨ 功能请求
-- 📋 任务
-- ❓ 问题咨询
-
-#### 2. AI 自动分类
-
-创建 Issue 后，AI 自动：
-- 分析类型（bug/feature/task）
-- 评估优先级（P0-P3）
-- 添加标签
-- 生成摘要
-
-#### 3. 查看任务看板
-
-访问 https://github.com/users/huangtao900103/projects/3
-
-拖拽卡片更改状态：
-```
-Todo → In Progress → Done
-```
-
-#### 4. 更新任务状态
+### 2. 安装依赖
 
 ```bash
-# 开始工作
-gh issue edit <编号> --add-label "status:in-progress"
+python3 scripts/obsidian.py install
+```
 
-# 标记阻塞
-gh issue edit <编号> --add-label "status:blocked"
+### 3. 查看状态
 
-# 完成任务
-gh issue close <编号>
+```bash
+python3 scripts/obsidian.py status
 ```
 
 ---
 
-### 三、常用命令速查
+## 二、添加知识（三种方式）
 
-#### Git 操作
+### 方式一：Web Clipper 插件（推荐）
+
+1. **安装插件**
+   - Chrome: [Web Clipper 商店](https://chromewebstore.google.com/detail/obsidian-web-clipper/hbfnancohjgjjmofefclnpjbcijhcbfg)
+   - 或在 Obsidian 中搜索 "Web Clipper" 安装
+
+2. **配置**
+   - 点击插件图标 → 连接保险库 → 选择 `East-lake`
+   - 设置默认保存位置：`raw/articles/`
+
+3. **使用**
+   - 浏览器看到好文章 → 点击插件 → Clip
+   - 自动保存到 `raw/articles/`
+
+### 方式二：命令行收集网页
 
 ```bash
-# 同步知识库
-cd ~/knowledge-base
-git pull
+python3 scripts/obsidian.py web add "https://article.com"
+```
 
-# 手动提交
-git add .
-git commit -m "更新文档"
+### 方式三：手动放入文件
+
+直接把文件拖到 `raw/articles/` 目录
+
+---
+
+## 三、编译知识库
+
+```bash
+python3 scripts/obsidian.py ai compile
+```
+
+自动生成：
+- 摘要 → `wiki/summaries/`
+- 概念 → `wiki/concepts/`
+- 索引 → `wiki/indexes/`
+
+---
+
+## 四、提问
+
+```bash
+# 简单提问
+python3 scripts/obsidian.py ask "你的问题"
+
+# 交互对话
+python3 scripts/obsidian.py chat
+```
+
+---
+
+## 五、团队协作
+
+### 提交到 GitHub
+
+```bash
+git add raw/
+git commit -m "feat: 添加新文章"
 git push
 ```
 
-#### Issue 操作
+### 自动流程
+
+```
+Git Push → GitHub Actions 自动：
+  1. 编译知识库 (ai compile)
+  2. 生成知识图谱 (ai graph)
+  3. 更新索引
+```
+
+### 成员同步
 
 ```bash
-# 创建任务
-gh issue create --title "任务标题" --body "任务描述"
-
-# 查看任务列表
-gh issue list --state open
-
-# 分配任务
-gh issue edit <编号> --add-assignee @me
-
-# 添加标签
-gh issue edit <编号> --add-label "P1-高"
-
-# 关闭任务
-gh issue close <编号>
+git pull
 ```
 
 ---
 
-### 四、标签说明
+## 六、其他命令
 
-#### 类型标签
-
-| 标签 | 颜色 | 用途 |
-|------|------|------|
-| `bug` | 🔴 | Bug 报告 |
-| `feature` | 🔵 | 功能请求 |
-| `task` | 🟢 | 常规任务 |
-| `question` | 🟣 | 问题咨询 |
-
-#### 优先级标签
-
-| 标签 | 含义 | 时限 |
-|------|------|------|
-| `P0-紧急` | 阻塞其他工作 | 立即处理 |
-| `P1-高` | 重要任务 | 本周完成 |
-| `P2-中` | 普通任务 | 两周内 |
-| `P3-低` | 低优先级 | 有时间再做 |
-
-#### 状态标签
-
-| 标签 | 含义 |
+| 命令 | 功能 |
 |------|------|
-| `needs-triage` | 待分类 |
-| `status:in-progress` | 进行中 |
-| `status:blocked` | 阻塞中 |
-| `status:review` | 待审核 |
+| `python3 scripts/obsidian.py status` | 查看状态 |
+| `python3 scripts/obsidian.py ai compile` | 编译知识库 |
+| `python3 scripts/obsidian.py ai graph` | 生成知识图谱 |
+| `python3 scripts/obsidian.py ai lint` | 健康检查 |
+| `python3 scripts/obsidian.py ai index` | 更新索引 |
 
 ---
 
-### 五、自动化功能
+## 七、Obsidian 配合使用
 
-| 功能 | 触发条件 | 说明 |
-|------|----------|------|
-| AI Issue 分类 | 创建 Issue | 自动打标签、分析优先级 |
-| 周报生成 | 每周一 9:00 | 汇总本周进展 |
-| 过期提醒 | 每天 10:00 | 提醒 >7天未更新任务 |
-| PR 描述生成 | 创建 PR | 自动生成描述模板 |
-
----
-
-### 六、获取帮助
-
-- 知识库：https://github.com/huangtao900103/knowledge-base
-- 任务管理：https://github.com/huangtao900103/team-tasks
-- 看板：https://github.com/users/huangtao900103/projects/3
+1. 用 Obsidian 打开 East-lake 目录
+2. 安装插件：
+   - **Obsidian Git** - 自动同步（必装）
+   - **Web Clipper** - 网页收集（必装）
+3. 在 Obsidian 中浏览 `wiki/` 目录查看知识
 
 ---
 
-## 📋 检查清单
+## 完整工作流
 
-新成员入职请完成：
-
-- [ ] Clone 知识库仓库
-- [ ] 安装 Obsidian 并打开知识库
-- [ ] 安装 Obsidian Git 插件
-- [ ] 配置自动同步
-- [ ] 访问任务看板
-- [ ] 创建一个测试 Issue
+```
+浏览器发现好文章
+      ↓
+Web Clipper 保存 → raw/articles/
+      ↓
+Git Push → 自动编译 + 知识图谱
+      ↓
+团队成员 Git Pull
+      ↓
+在 Obsidian 中浏览知识 / 提问
+```
 
 ---
 
-*最后更新：2025-05-05*
+## 常见问题
+
+**Q: 为什么需要 compile？**
+A: compile 会将原始资料编译成结构化的摘要和概念，建立知识网络。
+
+**Q: 需要配置 API 吗？**
+A: 本地搜索不需要。启用 AI 回答需要：
+```bash
+export ANTHROPIC_API_KEY="your-key"
+```
+
+**Q: 知识图谱在哪里？**
+A: `wiki/indexes/knowledge-graph.md`，支持 Mermaid 渲染。
+
+---
+
+*最后更新：2026-05-07*

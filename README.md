@@ -25,7 +25,9 @@ cd East-lake
 python3 scripts/obsidian.py status
 
 # 2. 放入原始资料到 raw/articles/
-#    - 支持 .md, .txt, .pdf
+#    - 方式一：手动复制文件
+#    - 方式二：使用 Obsidian Web Clipper 插件（推荐）
+#    - 方式三：网页收集 python3 scripts/obsidian.py web add <URL>
 
 # 3. 编译知识库
 python3 scripts/obsidian.py ai compile
@@ -33,6 +35,8 @@ python3 scripts/obsidian.py ai compile
 # 4. 提问
 python3 scripts/obsidian.py ask "你的问题"
 ```
+
+详细入门指南：[docs/quick-start.md](docs/quick-start.md)
 
 ---
 
