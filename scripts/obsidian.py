@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """
-Obsidian AI 工作流 - 统一入口（精简版）
+Obsidian AI 工作流 - Karpathy llm-wiki 方法实现
 
-一个脚本搞定所有功能：
-- 成果导入 (文件/网页)
-- AI 对话/问答
-- 知识管理/演化
-- 系统诊断
-
-使用: python obsidian.py <command> [args]
+核心操作：
+- Ingest: 摄入资料 → 自动生成摘要、提取概念、建立链接
+- Query: 问答 → 答案沉淀到 wiki
+- Lint: 健康检查 → 发现孤立页面、矛盾、过时内容
 """
 import argparse
 import json
@@ -19,21 +16,28 @@ import sys
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 
-VERSION = "2.0"
+VERSION = "3.0"
 
 # ============================================================
-# 核心配置
+# 核心配置 (Karpathy llm-wiki 方法)
 # ============================================================
 
 VAULT = Path(os.getcwd())
-INBOX = VAULT / "_inbox"
-ARCHIVE = VAULT / "_archive"
-ACHIEVEMENTS = VAULT / "achievements"
+
+# llm-wiki 目录结构
+RAW = VAULT / "raw"           # 原始资料（不可变）
+WIKI = VAULT / "wiki"         # LLM 编译产物
+OUTPUTS = VAULT / "outputs"   # 运行时输出
+ARCHIVE = VAULT / "_archive"  # 归档
+
+# 兼容旧目录
+INBOX = VAULT / "_inbox" if (VAULT / "_inbox").exists() else RAW
+ACHIEVEMENTS = WIKI
 
 # 创建必要目录
-for d in [INBOX, ARCHIVE, ACHIEVEMENTS]:
+for d in [RAW, WIKI, OUTPUTS, WIKI / "indexes", WIKI / "concepts", WIKI / "summaries", OUTPUTS / "qa", OUTPUTS / "health"]:
     d.mkdir(parents=True, exist_ok=True)
 
 
@@ -67,154 +71,64 @@ def print_status(items: list, empty_msg: str = "无"):
         print(f"  {i}. {item}")
 
 
+def extract_concepts(content: str) -> list[str]:
+    """从内容中提取关键概念（简单版）"""
+    # 常见概念模式
+    patterns = [
+        r'#+\s+(.{2,20})',           # 标题
+        r'\*\*(.{2,20})\*\*',        # 加粗
+        r'「([^」]{2,20})」',         # 中文引号
+        r'"([^"]{2,20})"',           # 英文引号
+    ]
+
+    concepts = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, content)
+        concepts.update(m for m in matches if len(m) >= 2)
+
+    return list(concepts)[:10]
+
+
+def find_related_concepts(new_concept: str, existing_concepts: list[str]) -> list[str]:
+    """找到相关概念"""
+    related = []
+    new_lower = new_concept.lower()
+    for ec in existing_concepts:
+        ec_lower = ec.lower()
+        # 简单匹配：包含关系或共同词
+        if new_lower in ec_lower or ec_lower in new_lower:
+            related.append(ec)
+        # 共同词
+        new_words = set(new_lower.split())
+        old_words = set(ec_lower.split())
+        if new_words & old_words:
+            related.append(ec)
+    return related[:5]
+
+
 # ============================================================
-# 成果管理
+# 成果管理 (保留兼容)
 # ============================================================
 
 def cmd_achieve(args):
     """成果管理命令"""
     if args.action == "in" or args.action == "inbox":
-        # 查看投递箱
-        print_header("📥 投递箱状态")
-
-        # 文件
-        files = [f for f in INBOX.rglob("*") if f.is_file() and not f.name.startswith('.')]
-        print(f"\n  待处理文件: {len(files)}")
+        print_header("📥 原始资料箱")
+        files = [f for f in RAW.rglob("*") if f.is_file() and not f.name.startswith('.')]
+        print(f"\n  原始文件: {len(files)}")
         for f in files[:5]:
             print(f"    - {f.name}")
-        if len(files) > 5:
-            print(f"    ... 还有 {len(files)-5} 个")
-
-        # 网页
-        web_inbox = INBOX / "web"
-        if web_inbox.exists():
-            web_files = list(web_inbox.glob("*.json"))
-            print(f"\n  待处理网页: {len(web_files)}")
-            for f in web_files[:3]:
-                data = json.loads(f.read_text())
-                print(f"    - {data.get('title', 'untitled')[:40]}")
-            if len(web_files) > 3:
-                print(f"    ... 还有 {len(web_files)-3} 个")
-
-        print("\n  处理命令: obsidian.py achieve process")
+        print("\n  处理命令: python3 scripts/obsidian.py ai compile")
 
     elif args.action == "process" or args.action == "run":
-        # 处理投递箱
-        print_header("🔄 处理投递箱")
-
-        # 处理文件
-        files = [f for f in INBOX.rglob("*") if f.is_file() and not f.name.startswith('.')]
-        processed = 0
-
-        for f in files:
-            result = process_file(f)
-            if result["success"]:
-                processed += 1
-                print(f"  ✅ {result['title']}")
-
-        print(f"\n  处理完成: {processed}/{len(files)} 个文件")
-
-        # 处理网页
-        web_inbox = INBOX / "web"
-        if web_inbox.exists():
-            web_files = list(web_inbox.glob("*.json"))
-            print(f"\n  网页收集: {len(web_files)} 个待处理")
-            print("  运行: obsidian.py web process")
+        cmd_compile()
 
     elif args.action == "status":
-        # 状态
-        files = [f for f in INBOX.rglob("*") if f.is_file() and not f.name.startswith('.')]
-        achievements = list(ACHIEVEMENTS.rglob("*.md")) if ACHIEVEMENTS.exists() else []
-
         print_header("📊 系统状态")
-        print(f"  投递箱: {len(files)} 个文件")
-        print(f"  成果库: {len(achievements)} 篇笔记")
-
-        # 最近处理
-        state_file = VAULT / ".obsidian" / "achievement-state.json"
-        if state_file.exists():
-            state = json.loads(state_file.read_text())
-            count = len(state.get("processed", {}))
-            print(f"  已处理: {count} 篇")
-
-
-def process_file(file_path: Path) -> dict:
-    """处理单个文件"""
-    try:
-        # 提取元数据
-        title = file_path.stem.replace('-', ' ').replace('_', ' ').title()[:60]
-        date = datetime.now().strftime('%Y-%m-%d')
-
-        # 检测分类
-        category = detect_category(file_path)
-
-        # 创建笔记
-        content = f"""---
-title: {title}
-tags: [{datetime.now().strftime('%Y-%m')}]
-created: {date}
-updated: {date}
-source: {file_path.name}
-category: achievements/{category}
-status: processed
----
-
-# {title}
-
-> [!info] 成果信息
-> - 来源: {file_path.name}
-> - 处理时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-## 附件
-
-📎 [{file_path.name}](.attachments/{file_name})
-
----
-
-## 后续操作
-
-- [ ] 补充内容
-- [ ] 添加链接
-- [ ] 分享团队
-"""
-
-        # 保存笔记
-        target_dir = ACHIEVEMENTS / category
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        target_file = target_dir / f"{date}-{file_path.stem[:40]}.md"
-        target_file.write_text(content, encoding='utf-8')
-
-        # 保存附件
-        attach_dir = target_dir / ".attachments"
-        attach_dir.mkdir(parents=True, exist_ok=True)
-        import shutil
-        shutil.copy2(file_path, attach_dir / file_path.name)
-
-        # 归档原文件
-        archive_dir = ARCHIVE
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(file_path), str(archive_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{file_path.name}"))
-
-        return {"success": True, "title": title, "category": category}
-
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-def detect_category(file_path: Path) -> str:
-    """检测分类"""
-    name = file_path.name.lower()
-    rules = {
-        "weekly": ["周报", "weekly", "总结"],
-        "research": ["研究", "research", "报告", "分析"],
-        "design": ["设计", "design", "ui", "ux"],
-        "code": ["代码", "code", "实现"],
-    }
-    for cat, keywords in rules.items():
-        if any(k in name for k in keywords):
-            return cat
-    return "misc"
+        raw_count = len(list(RAW.rglob("*.md"))) if RAW.exists() else 0
+        wiki_count = len(list(WIKI.rglob("*.md"))) if WIKI.exists() else 0
+        print(f"  原始资料: {raw_count} 个")
+        print(f"  Wiki: {wiki_count} 篇")
 
 
 # ============================================================
@@ -224,15 +138,13 @@ def detect_category(file_path: Path) -> str:
 def cmd_web(args):
     """网页收集命令"""
     if args.action == "add":
-        # 添加网页
         if not args.url:
             print("错误: 请提供 URL")
             return
-
         url = args.url
-        title = args.title or extract_title(url) or url.split('/')[-1][:50]
+        title = args.title or url.split('/')[-1][:50]
 
-        web_inbox = INBOX / "web"
+        web_inbox = RAW
         web_inbox.mkdir(parents=True, exist_ok=True)
 
         task = {
@@ -244,54 +156,24 @@ def cmd_web(args):
 
         url_hash = compute_hash(url.encode())
         (web_inbox / f"{url_hash}.json").write_text(json.dumps(task, indent=2))
-
         print(f"  ✅ 已添加: {title}")
-        print("  运行: obsidian.py web process")
+        print("  运行: python3 scripts/obsidian.py ai compile")
 
     elif args.action == "process":
-        # 处理网页
         print_header("🌐 处理网页")
-
-        web_inbox = INBOX / "web"
-        if not web_inbox.exists():
-            print("  收集箱为空")
-            return
-
         processed = 0
-        for task_file in web_inbox.glob("*.json"):
+        for task_file in RAW.glob("*.json"):
             task = json.loads(task_file.read_text())
             result = collect_web(task["url"], task.get("title"))
             if result["success"]:
                 processed += 1
-                task_file.unlink()  # 删除任务
-                print(f"  ✅ {result['title']}")
-
+                task_file.unlink()
         print(f"\n  完成: {processed} 个网页")
 
     else:
-        # 查看
         print_header("🌐 网页收集箱")
-        web_inbox = INBOX / "web"
-        if not web_inbox.exists():
-            print("  收集箱为空")
-            return
-
-        files = list(web_inbox.glob("*.json"))
+        files = list(RAW.glob("*.json"))
         print(f"  待处理: {len(files)} 个")
-        for f in files[:5]:
-            data = json.loads(f.read_text())
-            print(f"    - {data.get('title', 'untitled')[:40]}")
-
-
-def extract_title(url: str) -> Optional[str]:
-    """快速获取标题"""
-    try:
-        import requests
-        resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
-        soup = __import__('bs4').BeautifulSoup(resp.text, 'html.parser')
-        return soup.title.string.strip()[:60] if soup.title else None
-    except:
-        return None
 
 
 def collect_web(url: str, title: str = None) -> dict:
@@ -303,11 +185,9 @@ def collect_web(url: str, title: str = None) -> dict:
         resp = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(resp.text, 'html.parser')
 
-        # 获取标题
         if not title:
             title = soup.title.string.strip()[:60] if soup.title else url
 
-        # 提取内容
         for tag in soup(['script', 'style', 'nav', 'footer']):
             tag.decompose()
 
@@ -315,76 +195,504 @@ def collect_web(url: str, title: str = None) -> dict:
         lines = [l for l in content.split('\n') if len(l) > 20]
         content = '\n\n'.join(lines[:15])[:2000]
 
-        # 保存笔记
-        date = datetime.now().strftime('%Y-%m-%d')
-        target = ACHIEVEMENTS / "research"
-        target.mkdir(parents=True, exist_ok=True)
-
+        # 保存到 raw/articles/
         safe_title = re.sub(r'[^\w\s-]', '', title).replace(' ', '-')[:40]
-        md_file = target / f"{date}-{safe_title}.md"
+        date = datetime.now().strftime('%Y-%m-%d')
+        md_file = RAW / "articles" / f"{date}-{safe_title}.md"
+        md_file.parent.mkdir(parents=True, exist_ok=True)
 
-        note = f"""---
-title: {title}
-tags: [web-collector, {datetime.now().strftime('%Y-%m')}]
-created: {date}
-source: {url}
-category: achievements/research
-status: collected
----
-
-# {title}
-
-> [!info] 网页剪藏
-> - 来源: {url}
-> - 日期: {date}
-
-## 原文链接
-
-[{title}]({url})
-
-## 内容摘要
-
-{content}
-
----
-
-## 后续操作
-
-- [ ] 阅读完整内容
-- [ ] 提取要点
-- [ ] 添加思考
-"""
-
-        md_file.write_text(note, encoding='utf-8')
+        md_file.write_text(f"# {title}\n\n{content}", encoding='utf-8')
         return {"success": True, "title": title}
-
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 # ============================================================
-# 知识管理
+# Karpathy llm-wiki 核心操作
 # ============================================================
 
 def cmd_ai(args):
-    """AI 命令"""
-    if args.action == "ask":
+    """AI 命令 - llm-wiki 方法"""
+    action = args.action
+
+    if action == "ask":
         if not args.query:
             print("错误: 请提供问题")
             return
-        run_py("obsidian_chat.py", [args.query])
+        cmd_query(args.query)
 
-    elif args.action == "chat":
+    elif action == "chat":
         run_py("obsidian_chat.py", ["--interactive"])
 
-    elif args.action == "stats":
-        run_py("obsidian_qa.py", ["--summary"])
+    elif action == "stats":
+        cmd_stats()
 
-    elif args.action == "gaps":
-        run_py("obsidian_qa.py", ["--gaps"])
+    elif action == "compile":
+        cmd_compile(extract_concepts_flag=True)
 
-    elif args.action == "evolve":
+    elif action == "lint":
+        cmd_lint_enhanced()
+
+    elif action == "index":
+        cmd_update_index()
+
+    elif action == "evolve":
         run_py("auto_evolve.py", ["--once"])
+
+    elif action == "graph":
+        """生成知识图谱"""
+        run_py("generate_graph.py")
+
+
+def cmd_stats():
+    """显示知识库统计"""
+    print_header("📊 知识库统计")
+
+    raw_files = list(RAW.rglob("*.md")) if RAW.exists() else []
+    wiki_files = list(WIKI.rglob("*.md")) if WIKI.exists() else []
+    concepts = list((WIKI / "concepts").rglob("*.md")) if (WIKI / "concepts").exists() else []
+    summaries = list((WIKI / "summaries").rglob("*.md")) if (WIKI / "summaries").exists() else []
+    qa_outputs = list((OUTPUTS / "qa").rglob("*.md")) if (OUTPUTS / "qa").exists() else []
+
+    print(f"  📂 原始资料: {len(raw_files)} 篇")
+    print(f"  📚 Wiki: {len(wiki_files)} 篇")
+    print(f"     - 概念: {len(concepts)} 个")
+    print(f"     - 摘要: {len(summaries)} 篇")
+    print(f"     - 问答沉淀: {len(qa_outputs)} 篇")
+
+    # 链接统计
+    total_links = 0
+    for f in wiki_files:
+        content = f.read_text(errors='ignore')
+        total_links += len(re.findall(r'\[\[', content))
+    print(f"     - 交叉链接: {total_links} 个")
+
+
+def cmd_query(query: str, save_to_wiki: bool = True):
+    """问答处理 - 包含结果沉淀"""
+    print_header(f"🔍 查询: {query}")
+
+    # 1. 搜索相关文档
+    results = search_wiki(query)
+
+    if not results:
+        print("  未找到相关内容")
+        print("  提示：放入更多资料到 raw/ 并运行 compile")
+        return
+
+    print(f"  找到 {len(results)} 个相关文档:\n")
+    for i, r in enumerate(results[:5], 1):
+        print(f"  {i}. {r['title']}")
+        print(f"     {r['preview'][:80]}...")
+        print()
+
+    # 2. 如果启用 AI 且有 API Key，生成答案
+    answer = None
+    if os.getenv("ANTHROPIC_API_KEY"):
+        try:
+            import anthropic
+            client = anthropic.Anthropic()
+            context = "\n\n".join([f"# {r['title']}\n{r['content'][:1000]}" for r in results[:3]])
+            prompt = f"""基于以下知识库内容回答问题：{query}
+
+{context}
+
+请给出简洁准确的回答，并标注来源。"""
+
+            resp = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            answer = resp.content[0].text
+            print(f"  💡 AI 回答:\n{answer[:500]}...")
+        except Exception as e:
+            print(f"  ⚠️  AI 调用失败: {e}")
+
+    # 3. 沉淀到 wiki（可选）
+    if save_to_wiki and (results or answer):
+        qa_file = OUTPUTS / "qa" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{query[:20]}.md"
+
+        # 准备内容片段
+        links = '\n'.join(f'- [[{r["path"]}]]' for r in results)
+        ai_section = f'## AI 回答\n\n{answer}' if answer else ''
+        docs = '\n'.join(f'### {r["title"]}\n{r["content"][:300]}...\n' for r in results[:3])
+
+        content = f"""---
+title: {query}
+date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+type: qa
+---
+
+# {query}
+
+## 搜索结果
+
+{links}
+
+{ai_section}
+
+## 相关文档
+
+{docs}
+"""
+        qa_file.write_text(content, encoding='utf-8')
+        print(f"\n  ✅ 问答已沉淀到: {qa_file.relative_to(VAULT)}")
+
+
+def search_wiki(query: str, top_k: int = 5) -> list[dict]:
+    """搜索 wiki"""
+    results = []
+    query_lower = query.lower()
+
+    for f in WIKI.rglob("*.md"):
+        if f.name.startswith('.') or 'indexes' in str(f):
+            continue
+
+        try:
+            content = f.read_text(encoding='utf-8', errors='ignore')
+            content_lower = content.lower()
+
+            if query_lower in content_lower:
+                # 提取标题
+                title_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+                title = title_match.group(1) if title_match else f.stem
+
+                # 提取预览
+                pos = content_lower.find(query_lower)
+                preview = content[max(0, pos-30):pos+50]
+
+                results.append({
+                    "title": title,
+                    "path": str(f.relative_to(VAULT)),
+                    "content": content,
+                    "preview": preview,
+                    "score": content_lower.count(query_lower)
+                })
+        except:
+            pass
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:top_k]
+
+
+def extract_front_matter(content: str) -> dict:
+    """提取 front matter 元数据"""
+    import re
+    fm = {}
+    match = re.match(r'^---\n([\s\S]*?)\n---', content)
+    if match:
+        for line in match.group(1).split('\n'):
+            if ':' in line:
+                key, value = line.split(':', 1)
+                fm[key.strip()] = value.strip()
+    return fm
+
+
+def cmd_compile(extract_concepts_flag: bool = True):
+    """编译知识库 - Ingest 所有原始资料"""
+    print_header("🔄 编译知识库 (Karpathy 方法)")
+
+    if not RAW.exists():
+        print("  ❌ raw/ 目录不存在")
+        return
+
+    # 1. 扫描原始文件
+    raw_files = []
+    for ext in ['.md', '.txt', '.pdf']:
+        raw_files.extend(RAW.rglob(f"*{ext}"))
+    print(f"  发现 {len(raw_files)} 个原始文件")
+
+    # 2. 生成摘要
+    summaries_dir = WIKI / "summaries"
+    concepts_dir = WIKI / "concepts"
+    summaries_dir.mkdir(parents=True, exist_ok=True)
+    concepts_dir.mkdir(parents=True, exist_ok=True)
+
+    compiled = 0
+    concepts_found = set()
+
+    for f in raw_files:
+        if f.name.startswith('.'):
+            continue
+
+        summary_file = summaries_dir / f"{f.stem}.md"
+        if not summary_file.exists():
+            try:
+                content = f.read_text(encoding='utf-8', errors='ignore')
+            except:
+                content = f"[{f.suffix} 文件]"
+
+            # 提取 front matter 元数据
+            fm = extract_front_matter(content)
+
+            # 优先使用 front matter 中的标题
+            title = fm.get('title', f.stem)
+
+            # 提取来源 URL（支持多种格式）
+            source_url = fm.get('source', '') or fm.get('url', '') or fm.get('original-url', '')
+            if not source_url and f.suffix == '.md':
+                # 尝试从内容中查找 URL
+                url_match = re.search(r'\[原文\]\((https?://[^\)]+)\)', content)
+                if url_match:
+                    source_url = url_match.group(1)
+
+            # 提取概念
+            concepts = extract_concepts(content)
+            concepts_found.update(concepts)
+
+            # tags
+            tags_str = fm.get('tags', '')
+            if not tags_str and concepts:
+                tags_str = ', '.join(concepts[:3])
+
+            concepts_list = '\n'.join(f'- {c}' for c in concepts[:5]) if concepts else '- 待提取'
+            related_links = ', '.join(f'[[wiki/concepts/{c}]]' for c in concepts[:3]) if concepts else '无'
+
+            # 生成摘要
+            if source_url and source_url.startswith('http'):
+                source_block = f"> 📎 原文：[{source_url}]({source_url})"
+            else:
+                source_block = f"> 原始文件：{f.name}"
+
+            summary = f"""---
+title: {title}
+source: {source_url or str(f.relative_to(VAULT))}
+date: {datetime.now().strftime('%Y-%m-%d')}
+tags: [{tags_str}]
+compiled: {datetime.now().isoformat()}
+---
+
+# {title}
+
+{source_block}
+
+## 摘要
+（AI 补充中）
+
+## 关键要点
+{concepts_list}
+
+## 相关概念
+{related_links}
+"""
+            summary_file.write_text(summary, encoding='utf-8')
+            compiled += 1
+
+    print(f"  已生成 {compiled} 个摘要")
+
+    # 3. 创建/更新概念页面
+    if extract_concepts_flag and concepts_found:
+        existing_concepts = [c.stem for c in concepts_dir.glob("*.md")]
+        new_concepts = 0
+
+        for concept in concepts_found:
+            concept_file = concepts_dir / f"{concept}.md"
+            if not concept_file.exists():
+                # 找相关概念
+                related = find_related_concepts(concept, existing_concepts)
+
+                concept_content = f"""---
+title: {concept}
+type: concept
+created: {datetime.now().strftime('%Y-%m-%d')}
+related: [{', '.join(f'[[wiki/concepts/{r}]]' for r in related)}]
+---
+
+# {concept}
+
+## 定义
+（AI 补充中）
+
+## 来源
+{chr(10).join(f'- [[wiki/summaries/{f.stem}]]' for f in raw_files[:5])}
+
+## 关联
+{', '.join(f'[[wiki/concepts/{r}]]' for r in related) if related else '无'}
+"""
+                concept_file.write_text(concept_content, encoding='utf-8')
+                new_concepts += 1
+
+        print(f"  新增 {new_concepts} 个概念")
+
+    # 4. 更新索引和日志
+    update_index_file()
+    update_log("compile", f"编译知识库，处理 {len(raw_files)} 个文件，新增 {compiled} 个摘要")
+
+    print("  ✅ 编译完成")
+    print("  运行 'python3 scripts/obsidian.py ai index' 查看索引")
+
+
+def cmd_lint_enhanced():
+    """增强版 Lint - 健康检查"""
+    print_header("🔍 知识库健康检查")
+
+    issues = []
+    recommendations = []
+
+    # 1. 检查孤立页面
+    print("  检查孤立页面...")
+    for f in WIKI.rglob("*.md"):
+        if f.name.startswith('.') or 'indexes' in str(f):
+            continue
+        try:
+            content = f.read_text(errors='ignore')
+            links = re.findall(r'\[\[([^\]]+)\]\]', content)
+            if not links:
+                issues.append(f"孤立页面: {f.relative_to(VAULT)}")
+        except:
+            pass
+
+    # 2. 检查未编译的 raw 文件
+    print("  检查未编译文件...")
+    raw_files = list(RAW.rglob("*.md"))
+    summaries = list((WIKI / "summaries").rglob("*.md")) if (WIKI / "summaries").exists() else []
+    if len(raw_files) > len(summaries):
+        issues.append(f"未编译: {len(raw_files) - len(summaries)} 个原始文件")
+
+    # 3. 检查概念完整性
+    print("  检查概念网络...")
+    concept_files = list((WIKI / "concepts").rglob("*.md")) if (WIKI / "concepts").exists() else []
+    for cf in concept_files:
+        try:
+            content = cf.read_text(errors='ignore')
+            if 'AI 补充中' in content or '待提取' in content:
+                recommendations.append(f"概念待完善: {cf.stem}")
+        except:
+            pass
+
+    # 4. 检查索引一致性
+    print("  检查索引...")
+    index_file = WIKI / "indexes" / "index.md"
+    if index_file.exists():
+        index_content = index_file.read_text()
+        wiki_count = len(list(WIKI.rglob("*.md")))
+        # 简单验证
+        if "更新时间" not in index_content:
+            issues.append("索引文件不完整")
+
+    # 输出结果
+    print()
+    if issues:
+        print("  ❌ 发现问题:")
+        for issue in issues:
+            print(f"     - {issue}")
+    else:
+        print("  ✅ 无问题")
+
+    if recommendations:
+        print("\n  💡 建议:")
+        for rec in recommendations[:5]:
+            print(f"     - {rec}")
+
+    # 保存报告
+    health_file = OUTPUTS / "health" / f"health-{datetime.now().strftime('%Y%m%d')}.md"
+    health_file.write_text(f"""# 健康检查报告
+
+**日期**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## 问题 ({len(issues)} 个)
+
+{chr(10).join(f'- {i}' for i in issues) if issues else '无'}
+
+## 建议 ({len(recommendations)} 个)
+
+{chr(10).join(f'- {r}' for r in recommendations) if recommendations else '无'}
+
+## 统计
+
+- 原始文件: {len(raw_files)}
+- Wiki 页面: {len(list(WIKI.rglob('*.md'))) if WIKI.exists() else 0}
+- 概念: {len(concept_files)}
+- 摘要: {len(summaries)}
+""")
+    print(f"\n  📄 报告已保存: {health_file.relative_to(VAULT)}")
+
+
+def cmd_update_index():
+    """更新索引文件"""
+    print_header("📋 更新索引")
+
+    WIKI.mkdir(parents=True, exist_ok=True)
+    (WIKI / "indexes").mkdir(parents=True, exist_ok=True)
+
+    # 统计
+    concepts = list((WIKI / "concepts").rglob("*.md")) if (WIKI / "concepts").exists() else []
+    summaries = list((WIKI / "summaries").rglob("*.md")) if (WIKI / "summaries").exists() else []
+    research = list((WIKI / "research").rglob("*.md")) if (WIKI / "research").exists() else []
+    raw_files = list(RAW.rglob("*.md")) if RAW.exists() else []
+
+    # 生成索引 - 避免 f-string 中使用 chr(10)
+    concepts_section = '- 无概念'
+    if concepts:
+        items = '\n'.join(f'- [[wiki/concepts/{c.name}]]' for c in concepts[:10])
+        concepts_section = items
+
+    summaries_section = '- 无摘要'
+    if summaries:
+        items = '\n'.join(f'- [[wiki/summaries/{s.name}]] - {s.stem}' for s in summaries[:10])
+        summaries_section = items
+
+    raw_section = '- 无原始资料'
+    if raw_files:
+        items = '\n'.join(f'- [[{f.relative_to(VAULT)}]]' for f in raw_files[:10])
+        raw_section = items
+
+    content = f"""# Wiki Index
+
+> East-lake 知识库索引 - 由 LLM 自动维护
+
+## 统计
+
+- 原始资料: {len(raw_files)} 篇
+- 概念数: {len(concepts)} 个
+- 摘要数: {len(summaries)} 篇
+- 研究文档: {len(research)} 篇
+- 更新时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+---
+
+## 概念 (concepts/)
+
+{concepts_section}
+
+---
+
+## 摘要 (summaries/)
+
+{summaries_section}
+
+---
+
+## 原始资料 (raw/)
+
+{raw_section}
+
+---
+
+*由 LLM 自动生成 - 最后更新：{datetime.now().strftime('%Y-%m-%d')}*
+"""
+    (WIKI / "indexes" / "index.md").write_text(content, encoding='utf-8')
+    print("  ✅ 索引已更新")
+
+
+# 别名 - 兼容旧代码
+update_index_file = cmd_update_index
+
+
+def update_log(action: str, detail: str):
+    """更新日志"""
+    LOG = WIKI / "indexes" / "log.md"
+    entry = f"""
+## [{datetime.now().strftime('%Y-%m-%d')}] {action}
+
+- {detail}
+"""
+    if LOG.exists():
+        existing = LOG.read_text()
+        LOG.write_text(existing + entry)
+    else:
+        LOG.write_text(f"# Wiki Log\n{entry}")
 
 
 # ============================================================
@@ -396,14 +704,20 @@ def cmd_system(args):
     if args.action == "status":
         print_header("📊 系统状态")
 
-        # 文件统计
-        files = [f for f in INBOX.rglob("*") if f.is_file()]
-        web_files = list((INBOX / "web").glob("*.json")) if (INBOX / "web").exists() else []
-        md_files = list(ACHIEVEMENTS.rglob("*.md")) if ACHIEVEMENTS.exists() else []
+        raw_count = len(list(RAW.rglob("*.md"))) if RAW.exists() else 0
+        wiki_count = len(list(WIKI.rglob("*.md"))) if WIKI.exists() else 0
+        concepts_count = len(list((WIKI / "concepts").rglob("*.md"))) if (WIKI / "concepts").exists() else 0
+        summaries_count = len(list((WIKI / "summaries").rglob("*.md"))) if (WIKI / "summaries").exists() else 0
 
-        print(f"  投递箱: {len(files)} 个文件")
-        print(f"  网页收集: {len(web_files)} 个")
-        print(f"  成果笔记: {len(md_files)} 篇")
+        print(f"  📂 原始资料 (raw/): {raw_count} 个")
+        print(f"  📚 Wiki: {wiki_count} 个")
+        print(f"     - 概念: {concepts_count}")
+        print(f"     - 摘要: {summaries_count}")
+
+        uncompiled = raw_count - summaries_count
+        if uncompiled > 0:
+            print(f"\n  ⚠️  未编译: {uncompiled} 个")
+            print(f"     运行: python3 scripts/obsidian.py ai compile")
 
     elif args.action == "diagnose":
         run_py("diagnose.py")
@@ -422,39 +736,29 @@ def cmd_system(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description=f"Obsidian AI 工作流 v{VERSION} - 统一入口",
+        description=f"East-lake v{VERSION} - Karpathy llm-wiki 知识库",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-命令:
+核心操作 (Karpathy 方法):
 
-  成果管理:
-    achieve in          查看投递箱
-    achieve process     处理文件
-    achieve status      状态
+  📥 Ingest (摄入):
+    python obsidian.py ai compile      # 编译知识库（提取概念、建立链接）
 
-  网页收集:
-    web add <URL>       添加网页
-    web process         处理网页
-    web                 查看收集箱
+  🔍 Query (查询):
+    python obsidian.py ask <问题>      # 提问（答案自动沉淀到 wiki）
+    python obsidian.py chat            # 交互对话
 
-  AI 对话:
-    ask <问题>          提问
-    chat                交互对话
+  🔧 Lint (维护):
+    python obsidian.py ai lint         # 健康检查
+    python obsidian.py ai index        # 更新索引
 
-  知识管理:
-    ai stats            统计
-    ai gaps             知识缺口
-    ai evolve           演化
-
-  系统:
-    status              系统状态
-    install             安装依赖
+  📊 系统:
+    python obsidian.py status          # 查看状态
 
 示例:
-  python obsidian.py achieve process
-  python obsidian.py web add "https://..."
-  python obsidian.py ask "什么是RAG?"
-  python obsidian.py ai stats
+  python obsidian.py ai compile        # 编译所有原始资料
+  python obsidian.py ai lint           # 健康检查
+  python obsidian.py ask "什么是RAG?"  # 提问
         """
     )
 
@@ -463,16 +767,16 @@ def main():
     parser.add_argument("args", nargs="?", help="参数")
     parser.add_argument("--tags", "-t", help="标签")
     parser.add_argument("--title", help="标题")
+    parser.add_argument("--url", "-u", help="URL")
 
     args = parser.parse_args()
 
-    # 无参数显示帮助
     if not args.command:
         parser.print_help()
         print(f"\n版本: {VERSION}")
         return
 
-    # 路由命令
+    # 路由
     if args.command == "achieve" or args.command == "a":
         cmd_achieve(args)
 
@@ -480,7 +784,7 @@ def main():
         cmd_web(args)
 
     elif args.command == "ask":
-        cmd_ai(argparse.Namespace(action="ask", query=args.action or args.args))
+        cmd_query(args.action or args.args or "")
 
     elif args.command == "chat":
         cmd_ai(argparse.Namespace(action="chat"))
@@ -488,14 +792,20 @@ def main():
     elif args.command == "ai":
         cmd_ai(argparse.Namespace(action=args.action or "stats"))
 
+    elif args.command == "compile":
+        cmd_compile()
+
+    elif args.command == "lint":
+        cmd_lint_enhanced()
+
+    elif args.command == "index":
+        cmd_update_index()
+
     elif args.command == "status":
         cmd_system(argparse.Namespace(action="status"))
 
     elif args.command == "install":
         cmd_system(argparse.Namespace(action="install"))
-
-    elif args.command == "diagnose":
-        cmd_system(argparse.Namespace(action="diagnose"))
 
     else:
         print(f"未知命令: {args.command}")

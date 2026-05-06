@@ -94,7 +94,7 @@ class ObsidianAI:
 
     def _should_skip(self, path: Path) -> bool:
         """跳过某些路径"""
-        skip_patterns = [".git", ".obsidian", "node_modules", "scripts"]
+        skip_patterns = [".git", ".obsidian", "node_modules", "scripts", ".attachments", "_archive"]
         return any(p in str(path) for p in skip_patterns)
 
     def _extract_title(self, content: str, default: str) -> str:
