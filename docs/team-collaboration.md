@@ -1,3 +1,6 @@
+gh api -X PUT repos/huangtao900103/East-lake/subscription -f subscribed=true
+gh api -X PUT repos/huangtao900103/Satellite-HB/subscription -f subscribed=true
+
 # 团队协作指南
 
 本文档说明团队成员如何高效协作，请每位成员仔细阅读。
@@ -38,6 +41,23 @@ GitHub → Settings → Notifications：
 ---
 
 ## 三、知识库协作
+
+### 1. 内容录入与模板
+- 所有内容均按 templates/ 目录下模板填写，保持结构统一。
+- 每个主目录建议维护 index.md，自动/手动汇总子内容。
+
+### 2. 版本管理与协作
+- 通过 Git 进行版本管理，建议每次修改后提交并推送。
+- 多人协作时建议使用分支和 Pull Request，便于审核和追溯。
+
+### 3. AI协作与自动化建议
+- 定期将 Markdown 文档分块（chunking），生成 embedding，存入向量数据库，结合 RAG 技术实现智能检索与问答。
+- 可开发脚本自动将 Word、PPT、PDF 等文件转为 Markdown 或纯文本，纳入知识库统一管理。
+- AI 可定期分析变更，自动生成知识摘要、推送更新通知。
+- 支持 embedding 检索、语义问答、自动化知识地图生成等。
+
+### 4. 权限与安全
+- 敏感内容可分区或加密，AI 检索时结合权限系统。
 
 > 知识库采用 Git 分支管理模式，详见 [Git 工作流指南](git-workflow.md)
 
@@ -320,7 +340,7 @@ gh issue close <编号> --comment "已修复：优惠券计算逻辑错误"
 ---
 title: RAG 实现方案
 tags: [ai, rag, architecture]
-created: 2025-05-05
+created: 2026-05-05
 ---
 
 # RAG 实现方案
@@ -412,4 +432,4 @@ gh issue close <编号> --repo huangtao900103/Satellite-HB
 
 ---
 
-*最后更新：2025-05-05*
+*最后更新：2026-05-05*
