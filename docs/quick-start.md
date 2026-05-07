@@ -37,21 +37,21 @@ python3 scripts/obsidian.py status
 
 2. **配置**
    - 点击插件图标 → 连接保险库 → 选择 `East-lake`
-   - 设置默认保存位置：`raw/articles/`
+   - 设置默认保存位置：`raw/clippings/`
 
 3. **使用**
    - 浏览器看到好文章 → 点击插件 → Clip
-   - 自动保存到 `raw/articles/`
+   - 自动保存到 `raw/clippings/`
 
-### 方式二：命令行收集网页
+### 方式二：手动放入文件
+
+直接把文件拖到 `raw/clippings/` 或 `raw/articles/` 目录
+
+### 方式三：API 服务（高级）
 
 ```bash
-python3 scripts/obsidian.py web add "https://article.com"
+cd api && python main.py
 ```
-
-### 方式三：手动放入文件
-
-直接把文件拖到 `raw/articles/` 目录
 
 ---
 

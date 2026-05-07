@@ -31,19 +31,87 @@ RAW = VAULT / "raw"           # 原始资料（不可变）
 WIKI = VAULT / "wiki"         # LLM 编译产物
 OUTPUTS = VAULT / "outputs"   # 运行时输出
 ARCHIVE = VAULT / "_archive"  # 归档
+CLIPPINGS = RAW / "clippings"  # 网页剪藏
+ARTICLES = RAW / "articles"    # 文章/文档
+
+# 支持的文件格式
+SUPPORTED_EXTENSIONS = ['.md', '.txt', '.pdf', '.docx', '.ppt', '.pptx', '.html', '.htm']
 
 # 兼容旧目录
 INBOX = VAULT / "_inbox" if (VAULT / "_inbox").exists() else RAW
 ACHIEVEMENTS = WIKI
 
 # 创建必要目录
-for d in [RAW, WIKI, OUTPUTS, WIKI / "indexes", WIKI / "concepts", WIKI / "summaries", OUTPUTS / "qa", OUTPUTS / "health"]:
+for d in [RAW, CLIPPINGS, ARTICLES, WIKI, OUTPUTS, WIKI / "indexes", WIKI / "concepts", WIKI / "summaries", OUTPUTS / "qa", OUTPUTS / "health"]:
     d.mkdir(parents=True, exist_ok=True)
 
 
 # ============================================================
 # 工具函数
 # ============================================================
+
+def parse_file(file_path: Path) -> str:
+    """解析不同格式的文件，返回文本内容"""
+    ext = file_path.suffix.lower()
+    content = ""
+
+    try:
+        if ext == '.md' or ext == '.txt':
+            # Markdown 和纯文本直接读取
+            content = file_path.read_text(encoding='utf-8', errors='ignore')
+
+        elif ext == '.pdf':
+            # PDF 解析
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    for page in reader.pages:
+                        content += page.extract_text() + "\n"
+            except ImportError:
+                content = f"[PDF 文件 - 需要安装 PyPDF2: pip install PyPDF2]"
+
+        elif ext == '.docx':
+            # Word 文档解析
+            try:
+                import docx
+                doc = docx.Document(file_path)
+                for para in doc.paragraphs:
+                    content += para.text + "\n"
+            except ImportError:
+                content = f"[DOCX 文件 - 需要安装 python-docx: pip install python-docx]"
+
+        elif ext in ['.ppt', '.pptx']:
+            # PPT 解析
+            try:
+                import pptx
+                prs = pptx.Presentation(file_path)
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            content += shape.text + "\n"
+            except ImportError:
+                content = f"[PPT 文件 - 需要安装 python-pptx: pip install python-pptx]"
+
+        elif ext in ['.html', '.htm']:
+            # HTML 解析
+            try:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(file_path.read_text(encoding='utf-8', errors='ignore'), 'html.parser')
+                for tag in soup(['script', 'style', 'nav', 'footer']):
+                    tag.decompose()
+                content = soup.get_text(separator='\n', strip=True)
+            except ImportError:
+                content = file_path.read_text(encoding='utf-8', errors='ignore')
+
+        else:
+            content = f"[不支持的格式: {ext}]"
+
+    except Exception as e:
+        content = f"[解析失败: {str(e)}]"
+
+    return content
+
 
 def compute_hash(content: bytes) -> str:
     return hashlib.md5(content).hexdigest()[:12]
@@ -399,7 +467,7 @@ def cmd_compile(extract_concepts_flag: bool = True):
 
     # 1. 扫描原始文件
     raw_files = []
-    for ext in ['.md', '.txt', '.pdf']:
+    for ext in SUPPORTED_EXTENSIONS:
         raw_files.extend(RAW.rglob(f"*{ext}"))
     print(f"  发现 {len(raw_files)} 个原始文件")
 
@@ -418,10 +486,8 @@ def cmd_compile(extract_concepts_flag: bool = True):
 
         summary_file = summaries_dir / f"{f.stem}.md"
         if not summary_file.exists():
-            try:
-                content = f.read_text(encoding='utf-8', errors='ignore')
-            except:
-                content = f"[{f.suffix} 文件]"
+            # 使用统一的解析函数读取内容
+            content = parse_file(f)
 
             # 提取 front matter 元数据
             fm = extract_front_matter(content)
@@ -724,7 +790,7 @@ def cmd_system(args):
 
     elif args.action == "install":
         print("📦 安装依赖...")
-        packages = ["requests", "beautifulsoup4", "anthropic", "PyPDF2", "python-docx"]
+        packages = ["requests", "beautifulsoup4", "anthropic", "PyPDF2", "python-docx", "python-pptx"]
         for p in packages:
             subprocess.run([sys.executable, "-m", "pip", "install", p, "-q"], capture_output=True)
         print("  ✅ 完成")

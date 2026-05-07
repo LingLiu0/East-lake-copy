@@ -11,29 +11,35 @@
 ```
 .
 ├── raw/                    # 原始资料（不可变）
-│   ├── articles/          # 网页文章
-│   ├── papers/            # 论文
-│   ├── podcasts/          # 播客转录
-│   └── ...
+│   ├── clippings/          # Web Clipper 收藏（推荐）
+│   └── articles/           # 网页文章/文档
 │
 ├── wiki/                   # LLM 编译产物（由 LLM 维护）
-│   ├── indexes/           # 索引文件
-│   │   ├── index.md       # 内容目录（所有页面）
-│   │   └── log.md         # 操作日志
-│   ├── concepts/          # 概念条目
-│   ├── summaries/         # 摘要
-│   └── research/          # 研究文档
+│   ├── indexes/            # 索引文件
+│   │   ├── index.md        # 内容目录
+│   │   ├── log.md          # 操作日志
+│   │   └── knowledge-graph.md # 知识图谱
+│   ├── concepts/           # 概念条目
+│   └── summaries/          # 摘要
 │
-├── outputs/               # 运行时输出
-│   ├── qa/               # 问答沉淀
-│   └── health/           # 健康报告
+├── outputs/                # 运行时输出
+│   ├── qa/                 # 问答沉淀
+│   └── health/             # 健康报告
 │
-├── concepts/              # 原子概念（原 llm-wiki）
-├── research/              # 研究文档
-├── decisions/             # 决策记录
-├── meetings/              # 会议记录
-└── templates/             # 文档模板
+└── scripts/                # 核心脚本
+    └── obsidian.py         # 统一入口
 ```
+
+## 支持的文件格式
+
+| 格式 | 扩展名 | 说明 |
+|------|--------|------|
+| Markdown | `.md` | 完整解析，支持 front matter |
+| 文本 | `.txt` | 纯文本处理 |
+| PDF | `.pdf` | 文本提取 |
+| Word | `.docx` | 文档解析 |
+| PPT | `.ppt`, `.pptx` | 演示文稿解析 |
+| 网页 | `.html`, `.htm` | HTML 解析 |
 
 ## 核心原则
 
@@ -49,6 +55,7 @@
   - 提取概念 → `wiki/concepts/`
   - 更新索引 → `wiki/indexes/index.md`
   - 添加日志 → `wiki/indexes/log.md`
+  - 更新知识图谱 → `wiki/indexes/knowledge-graph.md`
 
 ### 3. 交叉链接原则
 - 知识条目之间使用 `[[链接]]` 建立双向链接
@@ -65,7 +72,8 @@
 2. 生成摘要（200字以内）
 3. 提取关键概念（3-5个）
 4. 更新 `index.md`
-5. 在 `log.md` 记录
+5. 更新 `knowledge-graph.md`
+6. 在 `log.md` 记录
 
 ### Query（查询）
 
@@ -78,10 +86,48 @@
 ### Lint（维护）
 
 定期检查 wiki 健康度：
+```bash
+python3 scripts/obsidian.py ai lint
+```
+
+检查内容：
 - 孤立页面（无 inbound 链接）
 - 过时内容
 - 缺失链接
-- 矛盾信息
+- 未编译的原始文件
+
+## 常用命令
+
+```bash
+# 查看状态
+python3 scripts/obsidian.py status
+
+# 编译知识库
+python3 scripts/obsidian.py ai compile
+
+# 生成知识图谱
+python3 scripts/obsidian.py ai graph
+
+# 健康检查
+python3 scripts/obsidian.py ai lint
+
+# 提问
+python3 scripts/obsidian.py ask "问题"
+```
+
+## Claude for Obsidian 插件
+
+推荐使用 [Claudian](https://github.com/nickmilo/claudian) 插件进行问答：
+
+1. **安装**：Obsidian → 设置 → 社区插件 → 搜索 "Claudian"
+2. **配置 API Key**：设置 `ANTHROPIC_API_KEY` 环境变量
+3. **使用**：
+   - 快捷键 `Ctrl+Shift+A` 提问
+   - 命令面板 `Ctrl+P` → "Ask AI"
+
+在 Obsidian 中可直接引用知识库内容：
+- 输入 `@wiki` 触发知识库搜索
+- 使用 `[[wiki/concepts/xxx]]` 引用概念
 
 ## 页面格式规范
 
@@ -90,15 +136,15 @@
 ```markdown
 ---
 title: 标题
-source: 来源文件
-date: 2026-05-06
+source: 来源文件/URL
+date: 2026-05-07
 tags: [tag1, tag2]
 ---
 
 # 标题
 
 ## 摘要
-（200字以内）
+（AI 补充中）
 
 ## 关键要点
 - 要点1
@@ -106,7 +152,7 @@ tags: [tag1, tag2]
 - 要点3
 
 ## 相关概念
-[[概念1]], [[概念2]]
+[[wiki/concepts/概念1]], [[wiki/concepts/概念2]]
 ```
 
 ### 概念格式 (concepts/)
@@ -115,8 +161,7 @@ tags: [tag1, tag2]
 ---
 title: 概念名称
 type: concept
-created: 2026-05-06
-related: [[相关概念]]
+created: 2026-05-07
 ---
 
 # 概念名称
@@ -125,34 +170,11 @@ related: [[相关概念]]
 概念的清晰定义
 
 ## 来源
-- [[摘要1]]
-- [[摘要2]]
+- [[wiki/summaries/摘要1]]
 
 ## 关联
-- [[相关概念1]]
-- [[相关概念2]]
+- [[wiki/concepts/相关概念1]]
 ```
-
-## 日志格式 (log.md)
-
-```markdown
-## [2026-05-06] ingest | 文章标题
-- 动作：摄入新文章
-- 来源：raw/articles/xxx.md
-- 提取概念：概念A, 概念B
-- 更新页面：5个
-
-## [2026-05-06] query | 问题摘要
-- 动作：回答问题
-- 涉及页面：概念A, 概念B
-- 答案存至：outputs/qa/xxx.md
-```
-
-## 命名规范
-
-- 文件名：使用英文短横线 `concept-name.md`
-- 概念名：中文或英文，保持简洁
-- 标签：使用英文小写
 
 ## 搜索优先级
 
