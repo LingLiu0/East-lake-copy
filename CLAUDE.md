@@ -10,24 +10,29 @@
 
 ```
 .
-├── raw/                    # 原始资料（不可变）
-│   ├── clippings/          # Web Clipper 收藏（推荐）
-│   └── articles/           # 网页文章/文档
+├── .claude/                 # Claude Code 配置
+├── .claudian/               # Claudian 插件配置
+├── .github/                 # GitHub Actions 工作流
+├── .obsidian/               # Obsidian 配置
 │
-├── wiki/                   # LLM 编译产物（由 LLM 维护）
-│   ├── indexes/            # 索引文件
-│   │   ├── index.md        # 内容目录
-│   │   ├── log.md          # 操作日志
+├── api/                     # API 服务
+│
+├── docs/                    # 文档
+│
+├── raw/                     # 原始资料（不可变）
+│   ├── clippings/           # Web Clipper 收藏（推荐）
+│   └── articles/            # 网页文章/文档
+│
+├── wiki/                    # LLM 编译产物（由 LLM 维护）
+│   ├── indexes/             # 索引文件
+│   │   ├── index.md         # 内容目录
+│   │   ├── log.md           # 操作日志
 │   │   └── knowledge-graph.md # 知识图谱
-│   ├── concepts/           # 概念条目
-│   └── summaries/          # 摘要
+│   ├── concepts/            # 概念条目
+│   └── summaries/           # 摘要
 │
-├── outputs/                # 运行时输出
-│   ├── qa/                 # 问答沉淀
-│   └── health/             # 健康报告
-│
-└── scripts/                # 核心脚本
-    └── obsidian.py         # 统一入口
+└── scripts/                 # 核心脚本
+    └── obsidian.py          # 统一入口
 ```
 
 ## 支持的文件格式
@@ -115,19 +120,42 @@ python3 scripts/obsidian.py ai lint
 python3 scripts/obsidian.py ask "问题"
 ```
 
-## Claude for Obsidian 插件
+## Obsidian 配置
 
-推荐使用 [Claudian](https://github.com/nickmilo/claudian) 插件进行问答：
+### 已安装插件
 
-1. **安装**：Obsidian → 设置 → 社区插件 → 搜索 "Claudian"
-2. **配置 API Key**：设置 `ANTHROPIC_API_KEY` 环境变量
-3. **使用**：
-   - 快捷键 `Ctrl+Shift+A` 提问
-   - 命令面板 `Ctrl+P` → "Ask AI"
+项目已配置以下 Obsidian 社区插件：
 
-在 Obsidian 中可直接引用知识库内容：
-- 输入 `@wiki` 触发知识库搜索
-- 使用 `[[wiki/concepts/xxx]]` 引用概念
+| 插件 | 用途 |
+|------|------|
+| [obsidian-git](https://github.com/denolehov/obsidian-git) | 自动备份到 Git 仓库 |
+| [Templater](https://github.com/SilentVoid13/Templater) | 高级模板功能 |
+| [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | 数据查询和索引 |
+| [BRAT](https://github.com/TfTHacker/obsidian42-brat) | 插件测试 |
+| [Claudian](https://github.com/YishenTu/claudian) | AI 问答集成 |
+
+### Claudian 安装
+
+推荐通过 BRAT 插件安装 Claudian：
+
+1. **安装 BRAT**：Obsidian → 设置 → 社区插件 → 搜索 "BRAT" 安装
+2. **安装 Claudian**：
+   - 命令面板 → "BRAT: Add a beta plugin"
+   - 输入 `https://github.com/YishenTu/claudian`
+3. **配置 API Key**：设置 `ANTHROPIC_API_KEY` 环境变量
+
+### 基础设置
+
+```json
+{
+  "attachmentFolderPath": "attachments",
+  "newFileLocation": "current",
+  "defaultViewMode": "preview",
+  "useMarkdownLinks": false,
+  "showUnsupportedFiles": true,
+  "promptDelete": false
+}
+```
 
 ## 页面格式规范
 

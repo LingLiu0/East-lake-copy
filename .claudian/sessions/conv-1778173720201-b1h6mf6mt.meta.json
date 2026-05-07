@@ -1,0 +1,23 @@
+{
+  "id": "conv-1778173720201-b1h6mf6mt",
+  "providerId": "claude",
+  "title": "帮我解读一下现有的文章",
+  "titleGenerationStatus": "failed",
+  "createdAt": 1778173720202,
+  "updatedAt": 1778174282797,
+  "lastResponseAt": 1778174282797,
+  "sessionId": "586733a2-a865-4ab6-8063-c7ace5557c78",
+  "providerState": {
+    "providerSessionId": "586733a2-a865-4ab6-8063-c7ace5557c78"
+  },
+  "usage": {
+    "model": "haiku",
+    "inputTokens": 33619,
+    "cacheCreationInputTokens": 0,
+    "cacheReadInputTokens": 0,
+    "contextWindow": 200000,
+    "contextTokens": 33619,
+    "percentage": 17,
+    "contextWindowIsAuthoritative": true
+  }
+}
