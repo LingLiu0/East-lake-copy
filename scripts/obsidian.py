@@ -868,7 +868,11 @@ def main():
         cmd_web(args)
 
     elif args.command == "ask":
-        cmd_query(args.action or args.args or "")
+        # 支持 python obsidian.py ask "问题" 格式
+        query = args.action or args.args or ""
+        if query.startswith('"') or query.startswith("'"):
+            query = query[1:-1]
+        cmd_query(query)
 
     elif args.command == "chat":
         cmd_ai(argparse.Namespace(action="chat"))
