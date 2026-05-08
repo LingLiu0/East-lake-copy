@@ -41,20 +41,19 @@ USE_API = bool(API_KEY and API_BASE)
 
 # 重点政策源（政策类）
 POLICY_SOURCES = [
-    {"name": "中国政府网", "url": "https://www.gov.cn/xinwen/zhengce/index.htm", "type": "政策"},
+    {"name": "中国政府网", "url": "https://www.gov.cn/zhengce/index.htm", "type": "政策"},
     {"name": "国务院公报", "url": "http://www.gov.cn/zhengce/gongbao/index.htm", "type": "政策"},
-    {"name": "发改委", "url": "https://www.ndrc.gov.cn/xwzx/", "type": "政策"},
-    {"name": "工信部", "url": "https://www.miit.gov.cn/gxsj/tjfx/", "type": "政策"},
+    {"name": "发改委", "url": "https://www.ndrc.gov.cn/xwzx/gnxw/", "type": "政策"},
+    {"name": "工信部", "url": "https://www.miit.gov.cn/gxsj/tjfx/dzxx/", "type": "政策"},
     {"name": "网信办", "url": "http://www.cac.gov.cn/", "type": "政策"},
-    {"name": "科技部", "url": "https://www.most.gov.cn/", "type": "政策"},
-    {"name": "商务部", "url": "http://www.mofcom.gov.cn/", "type": "政策"},
-    {"name": "财政部", "url": "http://www.mof.gov.cn/", "type": "政策"},
+    {"name": "科技部", "url": "https://www.most.gov.cn/kjbg/index.htm", "type": "政策"},
+    {"name": "商务部", "url": "http://www.mofcom.gov.cn/xwfb/rcxwfb/", "type": "政策"},
+    {"name": "财政部", "url": "http://www.mof.gov.cn/zhengwugongkai/", "type": "政策"},
 ]
 
 # 湖北政策源
 HUBEI_SOURCES = [
-    {"name": "湖北省政府", "url": "http://www.hubei.gov.cn/zhuanti/", "type": "湖北"},
-    {"name": "湖北省政府-要闻", "url": "http://www.hubei.gov.cn/xw/zyw/", "type": "湖北"},
+    {"name": "湖北省政府", "url": "http://www.hubei.gov.cn/xw/zt/zt2020/", "type": "湖北"},
     {"name": "荆楚网", "url": "https://www.cnhubei.com/", "type": "湖北"},
     {"name": "长江云", "url": "https://www.hbtv.com.cn/", "type": "湖北"},
 ]
@@ -96,6 +95,21 @@ EXCLUDE_KEYWORDS = [
     '晚会', '演唱会', '比赛', '赛事', '冠军', '世界杯', '奥运',
     '交通事故', '车祸', '火灾', '爆炸', '诈骗',
     '养生', "健康", "饮食", "减肥",
+    '观光', '列车', '地铁', '行李箱', '龙虾', '博览会', '热搜',
+    '投诉', '维权', '曝光',
+    '运营亮点', '传播亮点', '三文鱼', '货轮', '海事',
+    '客户端小程序', '举报中心', '委员会',
+    '高考', '考点', '分数线', '填报', '招生',
+    '公交', '司机', '帮扶', '老人',
+    '微公交', '居民',
+    '学会', '协会', '获评', '先进',
+    '足球联赛', '直播', '夜现场', '视听狂欢',
+    '创业', '同济医院', '医院',
+    '工匠', '原创音乐剧', '村舞', '按摩', '跨境电商',
+    '文旅', '知识产权', '专利', '判赔',
+    '体育', '大赛', '舞蹈',
+    '老里分', '出圈',
+    '社保卡', '儿童', '头像',
 ]
 
 HEADERS = {
@@ -175,6 +189,23 @@ def should_include(title: str) -> Tuple[bool, str]:
     # 新质领域
     if is_new_quality_policy(title_clean):
         return True, "新质领域"
+
+    # 湖北省委书记/省长关于重点领域的提法（特殊处理）
+    leader_keywords = ["王忠林", "王蒙徽"]
+    for leader in leader_keywords:
+        if leader in title_clean:
+            # 如果是省委书记/省长提及重点领域，保留
+            for nq in NEW_QUALITY_KEYWORDS:
+                if nq in title_clean:
+                    return True, "湖北动态"
+            # 如果只是省委书记/省长的普通活动，需要更严格的筛选
+            # 保留关于支点建设、经济发展、重大项目的内容
+            important_hubei = ["支点", "先行区", "都市圈", "经济", "发展", "建设", "项目", "产业", "投资"]
+            for imp in important_hubei:
+                if imp in title_clean:
+                    return True, "湖北动态"
+            # 其他省委书记/省长的一般性活动不保留
+            return False, ""
 
     # 湖北重点
     if is_hubei_policy(title_clean):
@@ -427,20 +458,28 @@ def summarize_with_api(articles: List[dict], date: str = None) -> str:
     return ""
 
 
-def fetch_policy() -> int:
+def fetch_policy(date: str = None) -> int:
     """获取政策热点"""
-    today = datetime.now().strftime('%Y-%m-%d')
+    if date is None:
+        date = datetime.now().strftime('%Y-%m-%d')
+
+    # 验证日期格式
+    try:
+        datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        print(f"  ⚠️ 日期格式错误，请使用 YYYY-MM-DD 格式")
+        return 0
 
     print("\n" + "=" * 50)
     print("  📰 获取重点政策")
-    print(f"  时间: {today} {datetime.now().strftime('%H:%M')}")
+    print(f"  时间: {date} {datetime.now().strftime('%H:%M')}")
     print("=" * 50 + "\n")
 
     cache = load_cache()
 
-    # 检查今天是否已获取
-    if today in cache.get("last_dates", []):
-        print(f"  ⏭️  今天已获取，跳过")
+    # 检查指定日期是否已获取
+    if date in cache.get("last_dates", []):
+        print(f"  ⏭️  {date} 已获取，跳过")
         return 0
 
     all_articles = []
@@ -550,13 +589,14 @@ def main():
     parser = argparse.ArgumentParser(description="重点政策获取 V4")
     parser.add_argument("--daily", action="store_true", help="每日自动获取模式")
     parser.add_argument("--interval", type=int, default=24, help="每日模式间隔（小时）")
+    parser.add_argument("--date", type=str, help="指定日期 (YYYY-MM-DD)，默认为今天")
 
     args = parser.parse_args()
 
     if args.daily:
         run_daily(args.interval)
     else:
-        fetch_policy()
+        fetch_policy(args.date)
 
 
 if __name__ == "__main__":
