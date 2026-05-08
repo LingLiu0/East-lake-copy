@@ -1,6 +1,7 @@
 # Daily Policy Fetch Workflow
 
 > 每天自动获取政策热点并编译
+> 输出：raw/clippings/YYYY-MM-DD-政策简报.md
 
 name: Daily Policy
 
@@ -68,3 +69,4 @@ jobs:
           echo "## 📰 每日政策获取完成" >> $GITHUB_STEP_SUMMARY
           echo "- 自动获取最新政策热点" >> $GITHUB_STEP_SUMMARY
           echo "- 编译新知识到 wiki" >> $GITHUB_STEP_SUMMARY
+          echo "- 输出目录: raw/clippings/" >> $GITHUB_STEP_SUMMARY

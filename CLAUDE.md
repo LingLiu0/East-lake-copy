@@ -23,6 +23,8 @@
 │   ├── clippings/           # Web Clipper 收藏（推荐）
 │   └── articles/            # 网页文章/文档
 │
+├── templates/               # AI生成物模板（人工维护）
+│
 ├── wiki/                    # LLM 编译产物（由 LLM 维护）
 │   ├── indexes/             # 索引文件
 │   │   ├── index.md         # 内容目录
@@ -32,7 +34,8 @@
 │   └── summaries/           # 摘要
 │
 └── scripts/                 # 核心脚本
-    └── obsidian.py          # 统一入口
+    ├── obsidian.py          # 统一入口
+    └── fetch_policy.py      # 政策简报获取
 ```
 
 ## 支持的文件格式
@@ -118,6 +121,11 @@ python3 scripts/obsidian.py ai lint
 
 # 提问
 python3 scripts/obsidian.py ask "问题"
+
+# 获取政策简报
+python3 scripts/fetch_policy.py               # 获取当天
+python3 scripts/fetch_policy.py --date 2026-05-07  # 获取指定日期
+python3 scripts/fetch_policy.py --daily       # 每日自动
 ```
 
 ## Obsidian 配置

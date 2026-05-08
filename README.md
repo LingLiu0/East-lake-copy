@@ -29,6 +29,7 @@
 - 📊 **周报生成**：每周五自动报告知识库状态
 - 🔄 **自动进化**：补全概念定义、强化知识关联
 - 👥 **团队协作**：基于 GitHub，多人协同
+- 📑 **政策简报**：自动获取重点政策，生成简报参考
 
 ---
 
@@ -58,6 +59,8 @@ East-lake/
 │   ├── clippings/           # Web Clipper 收藏
 │   └── articles/            # 文章/文档
 │
+├── templates/               # AI生成物模板（人工维护）
+│
 ├── wiki/                    # LLM 编译产物
 │   ├── indexes/             # 索引、图谱、日志
 │   ├── concepts/            # 概念条目
@@ -70,6 +73,7 @@ East-lake/
 │
 ├── scripts/                 # 核心脚本
 │   ├── obsidian.py          # 统一入口
+│   ├── fetch_policy.py      # 政策简报获取
 │   ├── auto_evolve.py       # 自动进化
 │   ├── weekly_report.py     # 周报生成
 │   └── api_client.py        # API 客户端

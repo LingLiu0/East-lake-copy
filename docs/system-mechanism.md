@@ -38,8 +38,9 @@
 
 | 组件 | 路径 | 功能 |
 |------|------|------|
-| `_inbox/` | 投递箱 | 接收待处理文件 |
-| `_inbox/web/` | 网页收集箱 | 存储待采集网页 |
+| `raw/clippings/` | 网页剪藏 | Web Clipper 收藏的网页 |
+| `raw/articles/` | 文章文档 | PDF/Word/PPT 等资料 |
+| `templates/` | AI模板 | AI生成物输出模板（人工维护） |
 
 **工作流程：**
 ```
@@ -53,11 +54,10 @@
 | 脚本 | 功能 | 触发方式 |
 |------|------|----------|
 | `obsidian.py` | 统一入口 | 手动/定时 |
-| `achievement-daemon.py` | 投递箱监听 | 后台运行 |
-| `web_collector.py` | 网页采集 | 手动 |
+| `fetch_policy.py` | 政策简报获取 | 手动/每日自动 |
 | `auto_evolve.py` | 知识演化 | 定时/手动 |
-| `obsidian_chat.py` | AI 对话 | 手动 |
-| `obsidian_qa.py` | 问答搜索 | 手动 |
+| `weekly_report.py` | 周报生成 | 每周定时 |
+| `generate_graph.py` | 知识图谱 | 手动/定时 |
 
 ### 2.3 AI 层（智能处理）
 
@@ -145,10 +145,11 @@ achievements/
 
 | Workflow | 触发条件 | 执行内容 |
 |----------|----------|----------|
-| `ai-analyze.yml` | push research/*.md | AI 分析文档、提取要点、生成摘要 |
-| `knowledge-index.yml` | push | 生成知识图谱、索引更新 |
-| `knowledge-evolution.yml` | 每周六 | 知识演化、缺口分析、建议生成 |
-| `daily-summary.yml` | 每日 | 生成每日变更摘要 |
+| `daily-policy.yml` | 每日/手动 | 获取政策简报、生成报告 |
+| `auto-compile.yml` | push raw/* | 自动编译知识库 |
+| `knowledge-graph.yml` | push | 生成知识图谱、索引更新 |
+| `auto-evolve.yml` | 每周 | 知识演化、缺口分析、建议生成 |
+| `weekly-report.yml` | 每周五 | 生成周报 |
 
 ---
 

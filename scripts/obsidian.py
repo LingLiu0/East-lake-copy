@@ -33,6 +33,7 @@ OUTPUTS = VAULT / "outputs"   # 运行时输出
 ARCHIVE = VAULT / "_archive"  # 归档
 CLIPPINGS = RAW / "clippings"  # 网页剪藏
 ARTICLES = RAW / "articles"    # 文章/文档
+TEMPLATES = VAULT / "templates"    # AI生成物模板（需人工维护）
 
 # 支持的文件格式
 SUPPORTED_EXTENSIONS = ['.md', '.txt', '.pdf', '.docx', '.ppt', '.pptx', '.html', '.htm']
@@ -42,7 +43,7 @@ INBOX = VAULT / "_inbox" if (VAULT / "_inbox").exists() else RAW
 ACHIEVEMENTS = WIKI
 
 # 创建必要目录
-for d in [RAW, CLIPPINGS, ARTICLES, WIKI, OUTPUTS, WIKI / "indexes", WIKI / "concepts", WIKI / "summaries", OUTPUTS / "qa", OUTPUTS / "health"]:
+for d in [RAW, CLIPPINGS, ARTICLES, WIKI, OUTPUTS, WIKI / "indexes", WIKI / "concepts", WIKI / "summaries", OUTPUTS / "qa", OUTPUTS / "health", TEMPLATES]:
     d.mkdir(parents=True, exist_ok=True)
 
 

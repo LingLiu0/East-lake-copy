@@ -29,6 +29,7 @@ from bs4 import BeautifulSoup
 VAULT = Path(os.getcwd())
 RAW = VAULT / "raw"
 CLIPPINGS = RAW / "clippings"
+TEMPLATES = VAULT / "templates"    # AI生成物模板
 CACHE_FILE = VAULT / ".claude" / "policy_cache.json"
 
 HEADERS = {
