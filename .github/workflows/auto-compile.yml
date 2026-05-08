@@ -33,7 +33,9 @@ jobs:
 
       - name: Compile knowledge base
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          API_KEY: ${{ secrets.API_KEY }}
+          API_BASE: ${{ secrets.API_BASE }}
+          MODEL: ${{ secrets.MODEL }}
         run: |
           python scripts/obsidian.py ai compile
 
