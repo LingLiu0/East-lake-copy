@@ -6,7 +6,7 @@ name: Knowledge Graph
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'wiki/**/*.md'
   schedule:

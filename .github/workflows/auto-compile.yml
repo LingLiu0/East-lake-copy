@@ -6,7 +6,7 @@ name: Auto Compile
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'raw/**/*.md'
       - 'raw/**/*.txt'
