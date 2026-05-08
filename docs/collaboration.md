@@ -48,8 +48,12 @@ pip install requests beautifulsoup4 anthropic PyPDF2 python-docx
 
 1. 进入仓库 → Settings → Secrets and variables → Actions
 2. 添加新 secret：
-   - **Name**: `ANTHROPIC_API_KEY`
-   - **Value**: 你的 Anthropic API Key
+
+| Secret 名称 | 说明 |
+|-------------|------|
+| `API_KEY` | 自定义大模型 API Key |
+| `API_BASE` | API 端点地址 |
+| `MODEL` | 模型名称 |
 
 > 注意：只有仓库管理员才能配置 Secrets
 
@@ -71,7 +75,7 @@ pip install requests beautifulsoup4 anthropic PyPDF2 python-docx
 1. 安装 BRAT 插件
 2. 命令面板 → "BRAT: Add a beta plugin"
 3. 输入：`https://github.com/YishenTu/claudian`
-4. 配置环境变量：`ANTHROPIC_API_KEY`
+3. 配置环境变量：API_KEY, API_BASE, MODEL
 
 ### 3. 日常使用
 
@@ -137,9 +141,9 @@ git merge origin/master
 
 ## 六、常见问题
 
-### Q: 没有 ANTHROPIC_API_KEY 怎么办？
+### Q: 没有 API_KEY 怎么办？
 
-A: 
+A:
 - 本地搜索不需要 API Key
 - 只使用 `python3 scripts/obsidian.py ask` 回答需要 API Key
 - 可以跳过编译，直接同步团队的 wiki 目录

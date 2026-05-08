@@ -190,6 +190,12 @@ A: compile 会将原始资料编译成结构化的摘要和概念，建立知识
 **Q: 需要配置 API 吗？**
 A: 本地搜索不需要。启用 AI 回答需要：
 ```bash
+# 方式 1：自定义 API（推荐）
+export API_KEY="your-api-key"
+export API_BASE="https://your-api-endpoint.com"
+export MODEL="your-model"
+
+# 方式 2：Anthropic
 export ANTHROPIC_API_KEY="your-key"
 ```
 
