@@ -76,7 +76,7 @@ def call_api(prompt: str, max_tokens: int = 2000) -> str:
         payload = {
             "model": MODEL,
             "messages": [
-                {"role": "system", "content": "你是一个专业的政策分析师，擅长获取最新政策信息。"},
+                {"role": "system", "content": "你是一个专业的政策分析师，擅长获取最新政策信息。请直接回答，不要有思考过程。"},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.7,
@@ -92,13 +92,24 @@ def call_api(prompt: str, max_tokens: int = 2000) -> str:
 
         if resp.status_code == 200:
             result = resp.json()
-            if "choices" in result:
-                return result["choices"][0]["message"]["content"]
-            elif "output" in result and "text" in result["output"]:
-                return result["output"]["text"]
+            content = ""
+
+            if "choices" in result and len(result["choices"]) > 0:
+                msg = result["choices"][0].get("message", {})
+                content = msg.get("content", "")
+
+                # 清理 reasoning 内容（如果有）
+                if "reasoning_content" in msg:
+                    # 只取 content 部分
+                    pass
+
+            if content:
+                return content.strip()
+            else:
+                print(f"  ⚠️ API 返回内容为空")
+
         else:
             print(f"  ⚠️ API 返回状态: {resp.status_code}")
-            print(f"     {resp.text[:200]}")
 
     except Exception as e:
         print(f"  ⚠️ API 调用失败: {e}")
@@ -110,26 +121,14 @@ def get_policy_from_api() -> List[Dict]:
     """通过大模型获取当天热点政策"""
     today = datetime.now().strftime("%Y年%m月%d日")
 
-    prompt = f"""请列出今天（{today}）中国最重要的政策新闻和科技/AI/商业热点。
+    prompt = f"""今天是{today}。请列出今天中国最重要的10条政策/科技/AI/商业新闻。
 
-要求：
-1. 必须包含今天发布的权威政策（如：国务院、发改委、工信部、网信办等）
-2. 科技/AI 领域的重大新闻
-3. 商业/经济热点
-4. 共 8-10 条
+格式要求（每行一条）：
+标题 | 完整URL
 
-每条格式（严格按这个格式）：
-标题 | URL
+权威来源包括：国务院、发改委、工信部、网信办、新华社、人民日报、央视新闻、36氪、虎嗅、澎湃新闻、网易科技、新浪科技、腾讯科技等。
 
-示例：
-国务院发布关于AI发展的指导意见 | https://www.gov.cn/zhengce/content/2024/xxx
-
-注意：
-- 必须是可以访问的真实URL
-- 优先选择政府官网、新华社、人民日报、央视新闻、36氪、虎嗅、澎湃新闻等权威来源
-- 如果不知道具体URL，用 https://www.gov.cn 作为占位
-
-请直接输出，不要其他说明："""
+直接输出10条，不要其他内容，每行格式必须是：标题 | URL"""
 
     print("  🤖 通过大模型获取热点政策...")
 
@@ -185,20 +184,16 @@ def get_policy_from_api() -> List[Dict]:
 
 def get_fallback_list() -> List[Dict]:
     """备用：获取固定政策源列表"""
-    # 当 API 不可用时的备用策略
     today = datetime.now().strftime("%Y-%m-%d")
 
+    # 当 API 不可用时的备用策略 - 使用已知可用的URL
     fallback_sources = [
-        # 政策
-        {"title": "国务院政策文件", "url": "https://www.gov.cn/zhengce/content/"},
-        {"title": "国家发改委", "url": "https://www.ndrc.gov.cn/"},
-        {"title": "工信部", "url": "https://www.miit.gov.cn/gxsj/tjfx/"},
-        {"title": "网信办", "url": "http://www.cac.gov.cn/"},
-        # 科技媒体
-        {"title": "36氪", "url": "https://www.36kr.com/information/AI/"},
-        {"title": "虎嗅", "url": "https://www.huxiu.com/"},
+        {"title": "36氪 - AI频道", "url": "https://www.36kr.com/information/AI/"},
+        {"title": "虎嗅网", "url": "https://www.huxiu.com/"},
         {"title": "钛媒体", "url": "https://www.tmtpost.com/"},
-        {"title": "澎湃新闻", "url": "https://www.thepaper.cn/"},
+        {"title": "网易科技", "url": "https://tech.163.com/"},
+        {"title": "新浪科技", "url": "https://tech.sina.com.cn/"},
+        {"title": "腾讯科技", "url": "https://tech.qq.com/"},
     ]
 
     print("  ⚠️ 使用备用源列表（API 不可用）")
@@ -260,7 +255,7 @@ def fetch_article_content(url: str) -> dict:
 
         # 提取日期
         date_match = re.search(r'(\d{4})[年\-](\d{1,2})[月\-](\d{1,2})', resp.text)
-        date_str = f"{date_match.group(1)}-{date_match.group(2).zfill(2)}-{date_match.group(3).zfill(2)}" if date_match else today
+        date_str = f"{date_match.group(1)}-{date_match.group(2).zfill(2)}-{date_match.group(3).zfill(2)}" if date_match else datetime.now().strftime('%Y-%m-%d')
 
         return {
             "title": title[:150].strip() if title else "无标题",
