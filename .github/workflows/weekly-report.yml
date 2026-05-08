@@ -39,7 +39,15 @@ jobs:
         run: |
           python scripts/weekly_report.py
 
-      - name: Commit and push report
+      - name: Auto evolve knowledge base
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          API_BASE: ${{ secrets.API_BASE }}
+          MODEL: ${{ secrets.MODEL }}
+        run: |
+          python scripts/auto_evolve.py
+
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
