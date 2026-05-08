@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """
-政策/热点自动获取脚本
+政策热点自动获取脚本
 
-功能：
-1. 从配置的 RSS 源获取最新政策/热点
-2. 自动抓取并保存到 raw/clippings/
-3. 支持自定义 API 获取热点
+通过大模型智能获取当天权威政策/热点，不用手动指定源
 
 使用：
     python3 scripts/fetch_policy.py           # 获取一次
@@ -20,6 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
+from typing import List, Dict
 
 import requests
 from bs4 import BeautifulSoup
@@ -27,25 +25,13 @@ from bs4 import BeautifulSoup
 VAULT = Path(os.getcwd())
 RAW = VAULT / "raw"
 CLIPPINGS = RAW / "clippings"
-RSS_CACHE = VAULT / ".claude" / "rss_cache.json"
+RSS_CACHE = VAULT / ".claude" / "policy_cache.json"
 
-# 默认 RSS 源（政策/科技/AI 相关）
-DEFAULT_SOURCES = [
-    # 中国政府网
-    "http://www.gov.cn/xinwen/zhengce/index.htm",
-    # 人民日报
-    "https://tech.gmw.cn/node_112854.htm",
-    # 36氪
-    "https://www.36kr.com/information/AI/",
-    # 钛媒体
-    "https://www.tmtpost.com/taixuetest",
-    # 澎湃新闻-科技
-    "https://m.thepaper.cn/newsDetail_forward_13162085",
-]
-
-# API 配置（可选，用于获取热点）
+# API 配置
 USE_API = os.getenv("API_KEY") and os.getenv("API_BASE")
 MODEL = os.getenv("MODEL", "Minimax-M2.5")
+API_BASE = os.getenv("API_BASE", "https://zhenze-huhehaote.cmecloud.cn")
+API_KEY = os.getenv("API_KEY", "")
 
 
 def load_cache() -> dict:
@@ -55,7 +41,7 @@ def load_cache() -> dict:
             return json.loads(RSS_CACHE.read_text())
         except:
             pass
-    return {"fetched": [], "last_fetch": None}
+    return {"fetched": [], "last_fetch": None, "dates": {}}
 
 
 def save_cache(cache: dict):
@@ -64,122 +50,224 @@ def save_cache(cache: dict):
     RSS_CACHE.write_text(json.dumps(cache, indent=2, ensure_ascii=False))
 
 
-def fetch_rss(url: str, max_items: int = 5) -> list:
-    """获取 RSS/网页更新"""
-    items = []
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-    }
+def call_api(prompt: str, max_tokens: int = 2000) -> str:
+    """调用大模型 API"""
+    global USE_API, API_KEY, API_BASE, MODEL
 
+    # 检查配置
+    if not USE_API:
+        API_KEY = os.getenv("API_KEY", "")
+        API_BASE = os.getenv("API_BASE", "https://zhenze-huhehaote.cmecloud.cn")
+        MODEL = os.getenv("MODEL", "Minimax-M2.5")
+        if API_KEY:
+            USE_API = True
+
+    if not USE_API or not API_KEY:
+        print("  ⚠️ 未配置 API_KEY/API_BASE")
+        return ""
+
+    # 使用 requests 调用自定义 API
     try:
-        resp = requests.get(url, headers=headers, timeout=15)
-        resp.raise_for_status()
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json"
+        }
 
-        soup = BeautifulSoup(resp.text, 'html.parser')
+        payload = {
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": "你是一个专业的政策分析师，擅长获取最新政策信息。"},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.7,
+            "max_tokens": max_tokens
+        }
 
-        # 尝试提取文章链接
-        links = []
-        for a in soup.find_all('a', href=True):
-            href = a.get('href', '')
-            text = a.get_text(strip=True)
+        resp = requests.post(
+            f"{API_BASE}/api/coding/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
 
-            # 过滤有效链接
-            if href and text and len(text) > 5:
-                # 绝对 URL
-                if href.startswith('http'):
-                    links.append({"title": text[:100], "url": href})
-                # 相对 URL
-                elif href.startswith('/'):
-                    parsed = urlparse(url)
-                    full_url = f"{parsed.scheme}://{parsed.netloc}{href}"
-                    links.append({"title": text[:100], "url": full_url})
-
-            if len(links) >= max_items:
-                break
-
-        items = links
+        if resp.status_code == 200:
+            result = resp.json()
+            if "choices" in result:
+                return result["choices"][0]["message"]["content"]
+            elif "output" in result and "text" in result["output"]:
+                return result["output"]["text"]
+        else:
+            print(f"  ⚠️ API 返回状态: {resp.status_code}")
+            print(f"     {resp.text[:200]}")
 
     except Exception as e:
-        print(f"  ⚠️ 获取失败: {url} - {e}")
+        print(f"  ⚠️ API 调用失败: {e}")
 
+    return ""
+
+
+def get_policy_from_api() -> List[Dict]:
+    """通过大模型获取当天热点政策"""
+    today = datetime.now().strftime("%Y年%m月%d日")
+
+    prompt = f"""请列出今天（{today}）中国最重要的政策新闻和科技/AI/商业热点。
+
+要求：
+1. 必须包含今天发布的权威政策（如：国务院、发改委、工信部、网信办等）
+2. 科技/AI 领域的重大新闻
+3. 商业/经济热点
+4. 共 8-10 条
+
+每条格式（严格按这个格式）：
+标题 | URL
+
+示例：
+国务院发布关于AI发展的指导意见 | https://www.gov.cn/zhengce/content/2024/xxx
+
+注意：
+- 必须是可以访问的真实URL
+- 优先选择政府官网、新华社、人民日报、央视新闻、36氪、虎嗅、澎湃新闻等权威来源
+- 如果不知道具体URL，用 https://www.gov.cn 作为占位
+
+请直接输出，不要其他说明："""
+
+    print("  🤖 通过大模型获取热点政策...")
+
+    result = call_api(prompt, max_tokens=1500)
+
+    if not result:
+        print("  ⚠️ API 返回为空，尝试备用方案")
+        return get_fallback_list()
+
+    # 解析结果
+    items = []
+
+    for line in result.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+
+        # 去除序号
+        line = re.sub(r'^\d+[\.\、]\s*', '', line)
+
+        # 匹配格式: 标题 | URL
+        parts = line.split('|')
+        if len(parts) >= 2:
+            title = parts[0].strip()
+            url = parts[1].strip()
+
+            # 验证 URL
+            if not url.startswith('http'):
+                continue
+            if 'example' in url.lower() or 'xxx' in url.lower():
+                continue
+
+            items.append({"title": title, "url": url})
+            continue
+
+        # 如果没有 | 符号，可能是格式问题，尝试修复
+        if 'http' in line:
+            url_match = re.search(r'(https?://[^\s]+)', line)
+            if url_match:
+                url = url_match.group(1)
+                title = line.replace(url, '').strip()
+                if title and len(title) > 5:
+                    items.append({"title": title, "url": url})
+
+    # 如果解析失败，使用备用
+    if not items:
+        print("  ⚠️ 解析失败，使用备用方案")
+        return get_fallback_list()
+
+    print(f"  ✅ 获取到 {len(items)} 条热点")
     return items
 
 
-def fetch_with_api(prompt: str = None) -> list:
-    """使用 API 获取热点"""
-    if not USE_API:
-        return []
+def get_fallback_list() -> List[Dict]:
+    """备用：获取固定政策源列表"""
+    # 当 API 不可用时的备用策略
+    today = datetime.now().strftime("%Y-%m-%d")
 
-    try:
-        from api_client import chat
+    fallback_sources = [
+        # 政策
+        {"title": "国务院政策文件", "url": "https://www.gov.cn/zhengce/content/"},
+        {"title": "国家发改委", "url": "https://www.ndrc.gov.cn/"},
+        {"title": "工信部", "url": "https://www.miit.gov.cn/gxsj/tjfx/"},
+        {"title": "网信办", "url": "http://www.cac.gov.cn/"},
+        # 科技媒体
+        {"title": "36氪", "url": "https://www.36kr.com/information/AI/"},
+        {"title": "虎嗅", "url": "https://www.huxiu.com/"},
+        {"title": "钛媒体", "url": "https://www.tmtpost.com/"},
+        {"title": "澎湃新闻", "url": "https://www.thepaper.cn/"},
+    ]
 
-        if not prompt:
-            prompt = """请列出今天（2024年）中国最重要的5条AI/科技/政策新闻，
-                       每条包含：标题、URL。
-                       回复格式：
-                       1. 标题 - URL"""
-
-        result = chat(prompt, max_tokens=1000)
-        if not result:
-            return []
-
-        # 解析结果
-        items = []
-        for line in result.split('\n'):
-            # 匹配 "1. 标题 - URL" 格式
-            match = re.match(r'\d+\.\s*(.+?)\s*-\s*(https?://\S+)', line)
-            if match:
-                items.append({
-                    "title": match.group(1).strip(),
-                    "url": match.group(2).strip()
-                })
-
-        return items
-
-    except Exception as e:
-        print(f"  ⚠️ API 获取失败: {e}")
-        return []
+    print("  ⚠️ 使用备用源列表（API 不可用）")
+    return fallback_sources
 
 
 def fetch_article_content(url: str) -> dict:
     """获取文章内容"""
+    # 跳过无效 URL
+    if not url or url == "无URL" or "example" in url.lower():
+        return {"title": "", "content": "", "url": url, "error": "无效URL"}
+
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
 
     try:
-        resp = requests.get(url, headers=headers, timeout=15)
+        resp = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
         resp.raise_for_status()
+
+        # 检测编码
+        resp.encoding = resp.apparent_encoding or 'utf-8'
 
         soup = BeautifulSoup(resp.text, 'html.parser')
 
         # 移除无关标签
-        for tag in soup(['script', 'style', 'nav', 'footer', 'header']):
+        for tag in soup(['script', 'style', 'nav', 'footer', 'header', 'aside', 'iframe']):
             tag.decompose()
 
         # 提取标题
         title = ""
         if soup.title:
-            title = soup.title.string
+            title = soup.title.string or ""
+
+        # 尝试多种方式获取标题
         h1 = soup.find('h1')
         if h1:
             title = h1.get_text(strip=True)
 
-        # 提取正文
+        # 获取 article 或 main
         content = ""
         article = soup.find('article')
         if article:
-            content = article.get_text(separator='\n', strip=True)
-        else:
-            # 尝试获取 main 或 div.content
-            main = soup.find('main') or soup.find('div', class_=re.compile('content|article'))
+            paragraphs = article.find_all('p')
+            if paragraphs:
+                content = '\n\n'.join(p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 20)
+            else:
+                content = article.get_text(separator='\n', strip=True)
+
+        if not content:
+            main = soup.find('main') or soup.find('div', class_=re.compile(r'content|article|main', re.I))
             if main:
                 content = main.get_text(separator='\n', strip=True)
 
-        # 截取前 3000 字符
-        content = content[:3000]
+        # 清理内容
+        content = re.sub(r'\n{3,}', '\n\n', content)
+        content = content[:4000]  # 限制长度
 
-        return {"title": title[:100], "content": content, "url": url}
+        # 提取日期
+        date_match = re.search(r'(\d{4})[年\-](\d{1,2})[月\-](\d{1,2})', resp.text)
+        date_str = f"{date_match.group(1)}-{date_match.group(2).zfill(2)}-{date_match.group(3).zfill(2)}" if date_match else today
+
+        return {
+            "title": title[:150].strip() if title else "无标题",
+            "content": content,
+            "url": url,
+            "date": date_str
+        }
 
     except Exception as e:
         return {"title": "", "content": "", "url": url, "error": str(e)}
@@ -187,20 +275,20 @@ def fetch_article_content(url: str) -> dict:
 
 def save_to_clippings(item: dict) -> Path:
     """保存到 clippings 目录"""
-    title = item.get("title", "Untitled")
+    title = item.get("title", "Untitled") or "无标题"
     content = item.get("content", "")
     url = item.get("url", "")
+    date = item.get("date", datetime.now().strftime('%Y-%m-%d'))
 
     # 生成文件名
-    safe_title = re.sub(r'[^\w\s-]', '', title).replace(' ', '-')[:50]
-    date_str = datetime.now().strftime('%Y%m%d')
-    filename = f"{date_str}-{safe_title}.md"
+    safe_title = re.sub(r'[^\w\s-]', '', title).replace(' ', '-')[:40]
+    filename = f"{date}-政策-{safe_title}.md"
 
     # 生成 Markdown
     md_content = f"""---
 title: {title}
 source: {url}
-date: {datetime.now().strftime('%Y-%m-%d')}
+date: {date}
 tags: [政策, 热点, 自动获取]
 type: policy
 ---
@@ -211,7 +299,7 @@ type: policy
 
 ## 内容
 
-{content[:2000]}
+{content[:3000]}
 
 ---
 
@@ -220,65 +308,90 @@ type: policy
 
     file_path = CLIPPINGS / filename
     file_path.write_text(md_content, encoding='utf-8')
-    print(f"  ✅ 已保存: {filename}")
 
     return file_path
 
 
-def fetch_policy(sources: list = None, use_api: bool = True) -> list:
+def fetch_policy() -> int:
     """获取政策热点"""
     print("\n" + "=" * 50)
-    print("  📰 获取政策热点")
+    print("  📰 获取今日政策热点")
+    print(f"  时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print("=" * 50 + "\n")
 
-    if sources is None:
-        sources = DEFAULT_SOURCES
-
     cache = load_cache()
-    new_items = []
+    today = datetime.now().strftime('%Y-%m-%d')
 
-    # 方式 1: 使用 API 获取热点（如果有配置）
-    if use_api and USE_API:
-        print("🔍 使用 API 获取热点...")
-        api_items = fetch_with_api()
-        if api_items:
-            for item in api_items[:5]:
-                url = item.get("url", "")
-                if url and url not in cache["fetched"]:
-                    print(f"  📄 获取: {item.get('title', '')[:50]}...")
-                    content = fetch_article_content(url)
-                    if content.get("content"):
-                        save_to_clippings(content)
-                        cache["fetched"].append(url)
-                        new_items.append(content)
-        print()
+    # 检查今天是否已获取
+    if cache.get("dates", {}).get(today, False):
+        print(f"  ⏭️  今天已获取，跳过")
+        return 0
 
-    # 方式 2: 从 RSS 源获取
-    print("📡 从 RSS 源获取...")
-    for source in sources[:3]:  # 限制数量
-        print(f"  处理: {source[:50]}...")
-        items = fetch_rss(source, max_items=3)
+    # 获取热点列表
+    if USE_API:
+        items = get_policy_from_api()
+    else:
+        items = get_fallback_list()
 
-        for item in items:
-            url = item.get("url", "")
-            if url and url not in cache["fetched"]:
-                # 获取内容
-                content = fetch_article_content(url)
-                if content.get("content"):
-                    save_to_clippings(content)
-                    cache["fetched"].append(url)
-                    new_items.append(content)
+    if not items:
+        print("  ❌ 未能获取到任何热点")
+        return 0
 
-        time.sleep(1)  # 避免请求过快
+    new_count = 0
+    errors = []
 
+    for i, item in enumerate(items[:8], 1):  # 限制数量
+        url = item.get("url", "")
+        title = item.get("title", "")
+
+        if not url or not url.startswith('http'):
+            print(f"  ⏭️  跳过: {title[:30]}... (无效URL)")
+            continue
+
+        # 检查是否已获取
+        if url in cache.get("fetched", []):
+            print(f"  ⏭️  已获取: {title[:30]}...")
+            continue
+
+        print(f"  [{i}/{len(items)}] 获取: {title[:40]}...")
+
+        # 获取内容
+        content = fetch_article_content(url)
+
+        if content.get("error"):
+            errors.append(f"{title[:20]}: {content['error']}")
+            print(f"      ❌ {content['error']}")
+            continue
+
+        if content.get("content"):
+            save_to_clippings(content)
+            cache["fetched"].append(url)
+            new_count += 1
+            print(f"      ✅ 已保存")
+        else:
+            errors.append(f"{title[:20]}: 无内容")
+            print(f"      ⚠️ 无内容")
+
+        time.sleep(1.5)  # 避免请求过快
+
+    # 更新缓存
+    if "dates" not in cache:
+        cache["dates"] = {}
+    cache["dates"][today] = True
     cache["last_fetch"] = datetime.now().isoformat()
     save_cache(cache)
 
     print("\n" + "=" * 50)
-    print(f"  ✅ 完成：获取 {len(new_items)} 条新内容")
+    print(f"  ✅ 完成：新增 {new_count} 条内容")
+
+    if errors:
+        print(f"  ⚠️  错误: {len(errors)} 条")
+        for e in errors[:3]:
+            print(f"      - {e[:50]}")
+
     print("=" * 50 + "\n")
 
-    return new_items
+    return new_count
 
 
 def run_daily(interval_hours: int = 24):
@@ -300,8 +413,7 @@ def run_daily(interval_hours: int = 24):
 
 def main():
     parser = argparse.ArgumentParser(description="政策热点自动获取")
-    parser.add_argument("--sources", nargs="*", help="指定 RSS 源")
-    parser.add_argument("--no-api", action="store_true", help="不使用 API 获取")
+    parser.add_argument("--no-api", action="store_true", help="不使用 API")
     parser.add_argument("--daily", action="store_true", help="每日自动获取模式")
     parser.add_argument("--interval", type=int, default=24, help="每日模式间隔（小时）")
 
@@ -310,7 +422,7 @@ def main():
     if args.daily:
         run_daily(args.interval)
     else:
-        fetch_policy(sources=args.sources, use_api=not args.no_api)
+        fetch_policy()
 
 
 if __name__ == "__main__":

@@ -138,6 +138,7 @@ python3 scripts/obsidian.py ask "这篇文章的核心观点是什么？"
 
 - ✅ 自定义 API（兼容 OpenAI 格式）
 - ✅ Anthropic Claude
+- ✅ 移动云 Zhenze
 - ✅ 阿里云 DashScope
 - ✅ 其他兼容 OpenAI API 的模型
 
