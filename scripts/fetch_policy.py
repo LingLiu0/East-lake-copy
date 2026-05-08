@@ -662,45 +662,6 @@ def fetch_policy(target_date: str = None) -> int:
 
     return len(content_items)
 
-    # 去重
-    seen = set()
-    unique_items = []
-    for item in all_items:
-        if item.url not in seen:
-            seen.add(item.url)
-            unique_items.append(item)
-
-    print(f"\n📊 共获取 {len(unique_items)} 条政策链接")
-    print("📄 提取正文内容...")
-
-    # 获取正文内容
-    content_items = []
-    for i, item in enumerate(unique_items[:10], 1):
-        print(f"  [{i}/{min(10, len(unique_items))}] {item.title[:35]}...")
-        full_item = extract_content(item.url, item.source)
-        if full_item:
-            content_items.append(full_item)
-        time.sleep(0.5)
-
-    # 生成简报
-    print("\n📝 生成简报...")
-    markdown = generate_markdown(content_items, date)
-
-    # 保存
-    output_file = CLIPPINGS / f"{date}-政策简报.md"
-    output_file.write_text(markdown, encoding='utf-8')
-    print(f"  ✅ 已保存: {output_file.name}")
-
-    # 更新缓存
-    cache["last_dates"] = [date]
-    save_cache(cache)
-
-    print("\n" + "=" * 50)
-    print(f"  ✅ 完成：获取 {len(content_items)} 条政策")
-    print("=" * 50 + "\n")
-
-    return len(content_items)
-
 
 def run_daily(interval_hours: int = 24):
     """每日自动获取"""
