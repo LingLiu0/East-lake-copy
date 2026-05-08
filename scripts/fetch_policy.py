@@ -125,6 +125,9 @@ EXCLUDE_KEYWORDS = [
     '景区', '门票', '放假', '调休', '晚会', '演唱会',
     '比赛', '赛事', '考试', '成绩', '分数线', '录取',
     '车祸', '火灾', '诈骗', '投诉',
+    '观光', '列车', '地铁', '行李箱', '龙虾', '博览会',
+    '热搜', '公交', '司机', '帮扶', '高考', '考点',
+    '举报中心', '学会', '协会', '直播',
 ]
 
 
@@ -298,27 +301,102 @@ def extract_content(url: str, source: str) -> Optional[PolicyItem]:
             if ps:
                 content = '\n'.join(p.get_text(strip=True) for p in ps if len(p.get_text(strip=True)) > 20)
 
-        # 方法2: 查找主内容区
+        # 方法2: 查找主内容区 - 更多选择器
         if not content:
-            for selector in ['.article-content', '.news-content', '.content', 'main', '[class*="content"]']:
+            selectors = [
+                '.article-content', '.news-content', '.article-text', '.news-text',
+                '.content', '.main-content', 'main', '#article', '#content',
+                '.text', '.detail', '.article-body',
+                'div[class*="content"]', 'div[class*="article"]', 'div[class*="text"]'
+            ]
+            for selector in selectors:
                 area = soup.select_one(selector)
                 if area:
                     ps = area.find_all('p')
-                    if ps:
-                        content = '\n'.join(p.get_text(strip=True) for p in ps if len(p.get_text(strip=True)) > 20)
-                        break
+                    if ps and len(ps) > 2:  # 确保有足够段落
+                        content = '\n'.join(p.get_text(strip=True) for p in ps if len(p.get_text(strip=True)) > 15)
+                        if len(content) > 100:
+                            break
 
-        # 提取日期
-        date_patterns = [
-            r'(\d{4})[年/](\d{1,2})[月/](\d{1,2})',
-            r'(\d{4}-\d{2}-\d{2})',
-        ]
-        text_for_date = title + content
-        for pattern in date_patterns:
-            match = re.search(pattern, text_for_date)
+        # 方法3: 直接查找所有段落，取最长的
+        if not content:
+            all_ps = soup.find_all('p')
+            if all_ps:
+                valid_ps = [p.get_text(strip=True) for p in all_ps if len(p.get_text(strip=True)) > 30]
+                if valid_ps:
+                    content = '\n'.join(valid_ps[:20])  # 最多20段
+
+        # 提取日期 - 优先从 meta 标签和特定元素提取
+        date = ""
+
+        # 方法1: 从 meta 标签提取（最可靠）
+        date_meta = (
+            soup.find('meta', attrs={'name': 'publishdate'}) or
+            soup.find('meta', attrs={'name': 'pubdate'}) or
+            soup.find('meta', attrs={'property': 'article:published_time'}) or
+            soup.find('meta', attrs={'name': 'date'}) or
+            soup.find('meta', attrs={'name': 'datetime'})
+        )
+        if date_meta and date_meta.get('content'):
+            content_val = date_meta.get('content', '')
+            # 处理各种格式
+            match = re.search(r'(\d{4}-\d{2}-\d{2})', content_val)
             if match:
-                date = match.group(0)
-                break
+                date = match.group(1)
+            else:
+                # 可能是 "2026-05-07T10:00:00" 格式
+                match = re.search(r'^(\d{4}-\d{2}-\d{2})', content_val)
+                if match:
+                    date = match.group(1)
+
+        # 方法2: 查找常见日期元素（包括荆楚网等）
+        if not date:
+            for selector in [
+                '.pub-date', '.publish-date', '.date', '.time',
+                '.news-date', '.article-date', '.post-date',
+                '[class*="date"]', '[class*="time"]', '[class*="pub"]',
+                'span[class*="date"]', 'div[class*="date"]',
+                'span[class*="time"]', 'div[class*="time"]',
+                'trs_date',  # 荆楚网特有
+            ]:
+                try:
+                    el = soup.select_one(selector)
+                    if el:
+                        text = el.get_text(strip=True)
+                        # 清理异常字符
+                        text = re.sub(r'[^\d\-年月日]', '', text)
+                        match = re.search(r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})', text)
+                        if match:
+                            date = match.group(1).replace('年', '-').replace('月', '-').replace('/', '-')
+                            # 清理多余的 -
+                            date = re.sub(r'-+', '-', date)
+                            break
+                except:
+                    pass
+
+        # 方法3: 从URL中提取日期（如中国政府网）
+        if not date:
+            url_date_match = re.search(r'/(\d{4})(\d{2})/content', url)
+            if url_date_match:
+                date = f"{url_date_match.group(1)}-{url_date_match.group(2)}"
+
+        # 方法4: 从正文提取"新华社北京 X月X日电"格式（新闻发布日）
+        if not date:
+            text_for_date = title + content
+            # 优先匹配 "X月X日" 格式（新闻电头）
+            match = re.search(r'(\d{1,2})月(\d{1,2})日', text_for_date)
+            if match:
+                # 需要结合当前年份
+                current_year = datetime.now().year
+                date = f"{current_year}-{int(match.group(1)):02d}-{int(match.group(2)):02d}"
+
+            # 次选其他日期格式
+            if not date:
+                for pattern in [r'(\d{4}-\d{2}-\d{2})', r'(\d{4})[/年](\d{1,2})[/月](\d{1,2})']:
+                    match = re.search(pattern, text_for_date)
+                    if match:
+                        date = match.group(0)
+                        break
 
         if not title:
             return None
