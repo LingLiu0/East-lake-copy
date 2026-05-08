@@ -4,20 +4,20 @@
   "title": "帮我解读一下现有的文章",
   "titleGenerationStatus": "failed",
   "createdAt": 1778173720202,
-  "updatedAt": 1778200889581,
-  "lastResponseAt": 1778200889581,
+  "updatedAt": 1778201547169,
+  "lastResponseAt": 1778201547169,
   "sessionId": "586733a2-a865-4ab6-8063-c7ace5557c78",
   "providerState": {
     "providerSessionId": "586733a2-a865-4ab6-8063-c7ace5557c78"
   },
   "usage": {
     "model": "haiku",
-    "inputTokens": 43464,
+    "inputTokens": 47777,
     "cacheCreationInputTokens": 0,
     "cacheReadInputTokens": 0,
     "contextWindow": 200000,
-    "contextTokens": 43464,
-    "percentage": 22,
+    "contextTokens": 47777,
+    "percentage": 24,
     "contextWindowIsAuthoritative": true
   }
 }

@@ -35,13 +35,50 @@ python3 scripts/obsidian.py status
    - Chrome: [Web Clipper 商店](https://chromewebstore.google.com/detail/obsidian-web-clipper/hbfnancohjgjjmofefclnpjbcijhcbfg)
    - 或在 Obsidian 中搜索 "Web Clipper" 安装
 
-2. **配置**
+2. **连接知识库**
    - 点击插件图标 → 连接保险库 → 选择 `East-lake`
-   - 设置默认保存位置：`raw/clippings/`
 
-3. **使用**
-   - 浏览器看到好文章 → 点击插件 → Clip
-   - 自动保存到 `raw/clippings/`
+3. **配置快捷方式（推荐）**
+
+   点击插件 ⚙️ 设置 → 找到 **Save Shortcuts** → 添加以下快捷方式：
+
+   | 快捷命令 | 保存路径 | 用途 |
+   |---------|---------|------|
+   | `clipping` | `raw/clippings/` | 网页收藏（推荐） |
+   | `article` | `raw/articles/` | 文章文档 |
+
+4. **使用方式**
+
+   保存网页时，在标题前加快捷命令：
+
+   ```
+   clipping 2026年AI趋势报告
+   ```
+   → 自动保存到 `raw/clippings/2026年AI趋势报告.md`
+
+   ```
+   article 深度学习论文
+   ```
+   → 自动保存到 `raw/articles/深度学习论文.md`
+
+5. **可选：自定义保存格式**
+
+   在设置中找到 **Save Format**，可配置 frontmatter：
+
+   ```yaml
+   ---
+   title: {{title}}
+   source: {{url}}
+   date: {{date}}
+   tags: [{{tags}}]
+   ---
+
+   # {{title}}
+
+   > 来源：{{url}}
+   ```
+
+> **注意**：目标文件夹必须已存在于 vault 中（`raw/clippings/` 和 `raw/articles/` 已预配置）
 
 ### 方式二：手动放入文件
 
