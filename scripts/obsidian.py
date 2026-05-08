@@ -356,24 +356,42 @@ def cmd_query(query: str, save_to_wiki: bool = True):
 
     # 2. 如果启用 AI 且有 API Key，生成答案
     answer = None
-    if os.getenv("ANTHROPIC_API_KEY"):
+
+    # 检查是否有自定义 API 或 Anthropic API
+    use_custom_api = os.getenv("API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+
+    if use_custom_api:
         try:
-            import anthropic
-            client = anthropic.Anthropic()
-            context = "\n\n".join([f"# {r['title']}\n{r['content'][:1000]}" for r in results[:3]])
-            prompt = f"""基于以下知识库内容回答问题：{query}
+            # 优先使用自定义 API
+            if os.getenv("API_KEY"):
+                from api_client import chat as custom_chat
+                context = "\n\n".join([f"# {r['title']}\n{r['content'][:1000]}" for r in results[:3]])
+                prompt = f"""基于以下知识库内容回答问题：{query}
+
+{context}
+
+请给出简洁准确的回答，并标注来源。"""
+                answer = custom_chat(prompt)
+            # 备用 Anthropic API
+            elif os.getenv("ANTHROPIC_API_KEY"):
+                import anthropic
+                client = anthropic.Anthropic()
+                context = "\n\n".join([f"# {r['title']}\n{r['content'][:1000]}" for r in results[:3]])
+                prompt = f"""基于以下知识库内容回答问题：{query}
 
 {context}
 
 请给出简洁准确的回答，并标注来源。"""
 
-            resp = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1000,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            answer = resp.content[0].text
-            print(f"  💡 AI 回答:\n{answer[:500]}...")
+                resp = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=1000,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                answer = resp.content[0].text
+
+            if answer:
+                print(f"  💡 AI 回答:\n{answer[:500]}...")
         except Exception as e:
             print(f"  ⚠️  AI 调用失败: {e}")
 

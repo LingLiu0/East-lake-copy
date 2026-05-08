@@ -28,6 +28,9 @@ LOG_FILE = WIKI / "indexes" / "log.md"
 
 def get_anthropic_client():
     """获取 Anthropic 客户端"""
+    # 优先使用自定义 API
+    if os.getenv("API_KEY"):
+        return "custom"
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return None
@@ -110,12 +113,17 @@ def complete_concept_definition(concept_file: Path, client) -> bool:
 """
 
     try:
-        resp = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        ai_content = resp.content[0].text
+        # 自定义 API
+        if client == "custom":
+            from api_client import chat as custom_chat
+            ai_content = custom_chat(prompt, max_tokens=500)
+        else:
+            resp = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=500,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            ai_content = resp.content[0].text
 
         # 替换占位符
         new_content = re.sub(
@@ -228,12 +236,17 @@ def qa_to_concept(qa_file: Path, client) -> Optional[Path]:
 - 要点2
 """
         try:
-            resp = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=300,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            ai_result = resp.content[0].text
+            # 自定义 API
+            if client == "custom":
+                from api_client import chat as custom_chat
+                ai_result = custom_chat(prompt, max_tokens=300)
+            else:
+                resp = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=300,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                ai_result = resp.content[0].text
             if "## 定义" in ai_result:
                 definition = ai_result.split("## 定义")[1].split("##")[0].strip()[:200]
             if "## 关键要点" in ai_result:
