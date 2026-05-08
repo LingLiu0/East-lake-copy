@@ -1,10 +1,12 @@
 {
   "fetched": [
     "https://www.36kr.com/information/AI/",
+    "https://www.huxiu.com/",
     "https://www.tmtpost.com/",
+    "https://tech.163.com/",
     "https://tech.sina.com.cn/"
   ],
-  "last_fetch": "2026-05-08T12:11:05.339556",
+  "last_fetch": "2026-05-08T12:30:56.418822",
   "dates": {
     "2026-05-08": true
   }
