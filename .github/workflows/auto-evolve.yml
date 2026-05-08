@@ -1,0 +1,55 @@
+# Auto Evolve Workflow
+
+> 定时自动进化知识库，让知识库越用越聪明
+
+name: Auto Evolve
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 每天凌晨 3 点
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'outputs/qa/**'
+
+permissions:
+  contents: write
+
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 anthropic PyPDF2 python-docx
+
+      - name: Run auto evolve
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python scripts/auto_evolve.py
+
+      - name: Commit changes
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --quiet && git diff --staged --quiet || git commit -m "ci: auto evolve knowledge base $(date '+%Y-%m-%d')"
+          git push
+
+      - name: Create summary
+        run: |
+          echo "## 自动进化完成" >> $GITHUB_STEP_SUMMARY
+          echo "- 补全概念定义" >> $GITHUB_STEP_SUMMARY
+          echo "- 从问答创建新概念" >> $GITHUB_STEP_SUMMARY
+          echo "- 强化概念关联" >> $GITHUB_STEP_SUMMARY
+          echo "- 发现知识盲区" >> $GITHUB_STEP_SUMMARY
