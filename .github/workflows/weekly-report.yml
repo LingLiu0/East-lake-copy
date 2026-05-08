@@ -6,7 +6,7 @@ name: Weekly Report
 
 on:
   schedule:
-    - cron: '0 9 * * 1'  # 每周一早上 9 点
+    - cron: '0 9 * * 5'  # 每周五早上 9 点
   workflow_dispatch:
   push:
     branches: [master]
