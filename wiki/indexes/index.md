@@ -4,26 +4,26 @@
 
 ## 统计
 
-- 原始资料: 2 篇
-- 概念数: 16 个
-- 摘要数: 3 篇
+- 原始资料: 3 篇
+- 概念数: 22 个
+- 摘要数: 4 篇
 - 研究文档: 0 篇
-- 更新时间: 2026-05-08 08:56:41
+- 更新时间: 2026-05-08 09:59:12
 
 ---
 
 ## 概念 (concepts/)
 
 - [[wiki/concepts/世界观.md]]
-- [[wiki/concepts/agent_system:  # ===.md]]
+- [[wiki/concepts/微信扫一扫赞赏作者.md]]
 - [[wiki/concepts/维德.md]]
+- [[wiki/concepts/8 、随着智能体的普及，领导者的管理风格.md]]
+- [[wiki/concepts/6 、企业的数字化是不是AI 应用的前提.md]]
 - [[wiki/concepts/扳道工.md]]
 - [[wiki/concepts/边缘 AI.md]]
 - [[wiki/concepts/认知债务.md]]
-- [[wiki/concepts/2. 理念与世界观 (Worldview.md]]
-- [[wiki/concepts/目标：不直接提供动力，但规定行动引擎必须.md]]
-- [[wiki/concepts/人工智能的未来发展趋势.md]]
-- [[wiki/concepts/关键技术.md]]
+- [[wiki/concepts/3 、 AI 产品的逻辑与普通软件产品有.md]]
+- [[wiki/concepts/1 、 企业部署AI的核心目的是什么？.md]]
 
 ---
 
@@ -31,12 +31,14 @@
 
 - [[wiki/summaries/长江技术通讯-第1期-推理工程化发展趋势.md]] - 长江技术通讯-第1期-推理工程化发展趋势
 - [[wiki/summaries/test-web-clipper.md]] - test-web-clipper
+- [[wiki/summaries/企业AI战略实施九问.md]] - 企业AI战略实施九问
 - [[wiki/summaries/烧了2亿Token的扳道工.md]] - 烧了2亿Token的扳道工
 
 ---
 
 ## 原始资料 (raw/)
 
+- [[raw/clippings/企业AI战略实施九问.md]]
 - [[raw/clippings/烧了2亿Token的扳道工.md]]
 - [[raw/articles/长江技术通讯-第1期-推理工程化发展趋势.md]]
 
