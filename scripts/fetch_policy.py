@@ -374,10 +374,11 @@ def extract_content(url: str, source: str) -> Optional[PolicyItem]:
                 except:
                     pass
 
-        # 方法3: 从URL中提取日期（如中国政府网）
+        # 方法3: 从URL中提取日期（如中国政府网 /202604/）
         if not date:
             url_date_match = re.search(r'/(\d{4})(\d{2})/content', url)
             if url_date_match:
+                # 完整日期可能需要去详情页获取，这里先取年月
                 date = f"{url_date_match.group(1)}-{url_date_match.group(2)}"
 
         # 方法4: 从正文提取"新华社北京 X月X日电"格式（新闻发布日）
@@ -392,6 +393,21 @@ def extract_content(url: str, source: str) -> Optional[PolicyItem]:
 
             # 次选其他日期格式
             if not date:
+                for pattern in [r'(\d{4}-\d{2}-\d{2})', r'(\d{4})[/年](\d{1,2})[/月](\d{1,2})']:
+                    match = re.search(pattern, text_for_date)
+                    if match:
+                        date = match.group(0)
+                        break
+
+        # 验证日期合理性：如果日期比今天还晚，清空
+        if date:
+            try:
+                parsed_date = datetime.strptime(date[:10], '%Y-%m-%d')
+                if parsed_date > datetime.now():
+                    date = ""  # 清除未来日期
+            except:
+                # 如果日期格式不完整（如只有年月），保留
+                pass
                 for pattern in [r'(\d{4}-\d{2}-\d{2})', r'(\d{4})[/年](\d{1,2})[/月](\d{1,2})']:
                     match = re.search(pattern, text_for_date)
                     if match:
