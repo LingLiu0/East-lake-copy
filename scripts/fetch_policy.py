@@ -382,8 +382,8 @@ def extract_content(url: str, source: str) -> Optional[PolicyItem]:
                 date = f"{url_date_match.group(1)}-{url_date_match.group(2)}"
 
         # 方法4: 从正文提取"新华社北京 X月X日电"格式（新闻发布日）
+        text_for_date = title + content
         if not date:
-            text_for_date = title + content
             # 优先匹配 "X月X日" 格式（新闻电头）
             match = re.search(r'(\d{1,2})月(\d{1,2})日', text_for_date)
             if match:
@@ -391,13 +391,13 @@ def extract_content(url: str, source: str) -> Optional[PolicyItem]:
                 current_year = datetime.now().year
                 date = f"{current_year}-{int(match.group(1)):02d}-{int(match.group(2)):02d}"
 
-            # 次选其他日期格式
-            if not date:
-                for pattern in [r'(\d{4}-\d{2}-\d{2})', r'(\d{4})[/年](\d{1,2})[/月](\d{1,2})']:
-                    match = re.search(pattern, text_for_date)
-                    if match:
-                        date = match.group(0)
-                        break
+        # 方法5: 次选其他日期格式
+        if not date:
+            for pattern in [r'(\d{4}-\d{2}-\d{2})', r'(\d{4})[/年](\d{1,2})[/月](\d{1,2})']:
+                match = re.search(pattern, text_for_date)
+                if match:
+                    date = match.group(0)
+                    break
 
         # 验证日期合理性：如果日期比今天还晚，清空
         if date:
@@ -522,27 +522,30 @@ def generate_markdown(items: List[PolicyItem], date: str) -> str:
     return '\n'.join(lines)
 
 
-def fetch_policy(date: str = None) -> int:
-    """获取政策"""
-    if date is None:
-        date = datetime.now().strftime('%Y-%m-%d')
+def fetch_policy(target_date: str = None) -> int:
+    """获取政策
+    target_date: 要获取的政策发布日期，如 "2026-05-07"
+    """
+    # 如果没有指定日期，默认今天
+    if target_date is None:
+        target_date = datetime.now().strftime('%Y-%m-%d')
 
     try:
-        datetime.strptime(date, '%Y-%m-%d')
+        datetime.strptime(target_date, '%Y-%m-%d')
     except ValueError:
         print("  ⚠️ 日期格式错误，请使用 YYYY-MM-DD")
         return 0
 
     print("\n" + "=" * 50)
     print("  📰 政策简报获取")
-    print(f"  日期: {date}")
+    print(f"  目标日期: {target_date}")
     print("=" * 50 + "\n")
 
     cache = load_cache()
 
-    # 检查是否已获取
-    if date in cache.get("last_dates", []):
-        print(f"  ⏭️  {date} 已获取")
+    # 检查指定日期是否已获取
+    if target_date in cache.get("last_dates", []):
+        print(f"  ⏭️  {target_date} 已获取")
         return 0
 
     all_items = []
@@ -555,7 +558,7 @@ def fetch_policy(date: str = None) -> int:
             source["list_url"],
             source["name"],
             source["base_url"],
-            max_items=8
+            max_items=12
         )
         for item in items:
             if item.url not in cache["fetched_urls"]:
@@ -572,7 +575,7 @@ def fetch_policy(date: str = None) -> int:
             source["list_url"],
             source["name"],
             source["base_url"],
-            max_items=8
+            max_items=12
         )
         for item in items:
             if item.url not in cache["fetched_urls"]:
@@ -589,7 +592,7 @@ def fetch_policy(date: str = None) -> int:
             source["list_url"],
             source["name"],
             source["base_url"],
-            max_items=5
+            max_items=8
         )
         for item in items:
             if item.url not in cache["fetched_urls"]:
@@ -601,6 +604,63 @@ def fetch_policy(date: str = None) -> int:
     if not all_items:
         print("\n  ⚠️ 未获取到相关政策")
         return 0
+
+    # 去重
+    seen = set()
+    unique_items = []
+    for item in all_items:
+        if item.url not in seen:
+            seen.add(item.url)
+            unique_items.append(item)
+
+    print(f"\n📊 共获取 {len(unique_items)} 条政策链接")
+    print("📄 提取正文内容和日期...")
+
+    # 获取正文内容并提取日期
+    content_items = []
+    target_date_only = target_date[:10]  # "2026-05-07"
+
+    for i, item in enumerate(unique_items[:15], 1):
+        print(f"  [{i}/{min(15, len(unique_items))}] {item.title[:35]}...")
+        full_item = extract_content(item.url, item.source)
+        if full_item:
+            # 提取日期中的年月日进行比较
+            item_date = full_item.date[:10] if full_item.date else ""
+
+            # 过滤：只保留目标日期的政策
+            if item_date == target_date_only:
+                content_items.append(full_item)
+                print(f"    ✓ 日期匹配: {item_date}")
+            elif not item_date:
+                # 如果没提取到日期，保留（可能是网站问题）
+                content_items.append(full_item)
+            else:
+                print(f"    ✗ 日期不匹配: {item_date} != {target_date_only}")
+        time.sleep(0.5)
+
+    if not content_items:
+        print(f"\n  ⚠️ {target_date} 没有找到发布的政策")
+        print(f"  💡 提示：网站可能还没有更新，或者日期格式提取失败")
+        return 0
+
+    # 生成简报
+    print(f"\n📝 生成 {target_date} 简报...")
+    markdown = generate_markdown(content_items, target_date)
+
+    # 保存文件名使用目标日期
+    output_file = CLIPPINGS / f"{target_date}-政策简报.md"
+    output_file.write_text(markdown, encoding='utf-8')
+    print(f"  ✅ 已保存: {output_file.name}")
+
+    # 更新缓存
+    cache["last_dates"] = [target_date]
+    save_cache(cache)
+
+    print("\n" + "=" * 50)
+    print(f"  ✅ 完成：获取 {len(content_items)} 条 {target_date} 政策")
+    print("=" * 50 + "\n")
+
+    return len(content_items)
 
     # 去重
     seen = set()
