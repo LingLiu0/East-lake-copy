@@ -1,0 +1,55 @@
+# Weekly Report Workflow
+
+> 每周生成知识库报告
+
+name: Weekly Report
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # 每周一早上 9 点
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'raw/**'
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
+
+      - name: Generate weekly report
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          API_BASE: ${{ secrets.API_BASE }}
+          MODEL: ${{ secrets.MODEL }}
+        run: |
+          python scripts/weekly_report.py
+
+      - name: Commit and push report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add outputs/reports/
+          git diff --quiet && git diff --staged --quiet || git commit -m "docs: weekly knowledge base report $(date '+%Y-%m-%d')"
+          git push
+
+      - name: Create summary
+        run: |
+          echo "## 📊 周报生成完成" >> $GITHUB_STEP_SUMMARY
+          echo "- 知识库统计" >> $GITHUB_STEP_SUMMARY
+          echo "- 进化状态" >> $GITHUB_STEP_SUMMARY
+          echo "- 健康度评估" >> $GITHUB_STEP_SUMMARY
