@@ -125,13 +125,14 @@ def complete_concept_definition(concept_file: Path, client) -> bool:
             )
             ai_content = resp.content[0].text
 
-        # 替换占位符
-        new_content = re.sub(
-            r'## 定义\s*\n.*?\(AI 补充中\)',
-            f'## 定义\n{ai_content.split("## 关键要点")[0].replace("## 定义", "").strip()}',
-            content,
-            flags=re.DOTALL
-        )
+        # 提取定义内容
+        if "## 定义" in ai_content and "## 关键要点" in ai_content:
+            definition_text = ai_content.split("## 关键要点")[0].replace("## 定义", "").strip()
+        else:
+            definition_text = ai_content.strip()[:200]
+
+        # 简单替换
+        new_content = content.replace("（AI 补充中）", definition_text)
 
         # 替换关键要点
         if "## 关键要点" in ai_content:
