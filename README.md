@@ -248,3 +248,4 @@ python3 scripts/fetch_policy.py
 ---
 
 **GitHub**: https://github.com/huangtao900103/East-lake
+# Daily workflow configured
