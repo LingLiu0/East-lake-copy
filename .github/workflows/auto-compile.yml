@@ -8,9 +8,8 @@ on:
   push:
     branches: [master]
     paths:
-      - 'raw/**/*.md'
-      - 'raw/**/*.txt'
-      - 'raw/**/*.pdf'
+      - 'raw/**'
+      - '!raw/clippings/**'
   workflow_dispatch:
 
 permissions:

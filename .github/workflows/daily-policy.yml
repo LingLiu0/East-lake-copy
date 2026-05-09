@@ -11,8 +11,10 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths:
-      - 'raw/clippings/**'
+    paths-ignore:
+      - '*.md'
+      - '*.json'
+      - '*.yml'
 
 permissions:
   contents: write
