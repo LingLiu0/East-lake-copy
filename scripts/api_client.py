@@ -9,7 +9,7 @@ from typing import Optional
 # 配置（可被环境变量覆盖）
 API_BASE = os.getenv("API_BASE", "https://zhenze-huhehaote.cmecloud.cn")
 API_KEY = os.getenv("API_KEY", "7R0_5N8p7twgq2xd6Z15Uu0gy4u8cvLViOOX-rbNKQE")
-MODEL = os.getenv("MODEL", "Minimax-M2.5")  # 默认用 Minimax-M2.5
+MODEL = os.getenv("MODEL", "MiniMax-M2.5")  # 默认用 MiniMax-M2.5
 API_PATH = "/api/coding/v1/chat/completions"  # API 路径
 
 

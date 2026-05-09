@@ -98,14 +98,14 @@ HUBEI_SOURCES = [
     },
 ]
 
-# 科技/新质生产力源
+# 科技/新质生产力源 - 只保留政府/权威网站
 TECH_SOURCES = [
-    {
-        "name": "36氪-AI",
-        "base_url": "https://www.36kr.com",
-        "list_url": "https://www.36kr.com/information/AI/",
-        "type": "科技",
-    },
+    # {
+    #     "name": "36氪-AI",
+    #     "base_url": "https://www.36kr.com",
+    #     "list_url": "https://www.36kr.com/information/AI/",
+    #     "type": "科技",
+    # },
 ]
 
 # ============================================================
