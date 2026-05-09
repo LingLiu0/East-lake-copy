@@ -1,0 +1,23 @@
+{
+  "id": "conv-1778288310204-m5253in32",
+  "providerId": "claude",
+  "title": "昨天有哪些重要政策",
+  "titleGenerationStatus": "failed",
+  "createdAt": 1778288310205,
+  "updatedAt": 1778289053930,
+  "lastResponseAt": 1778289053930,
+  "sessionId": "7c7ce659-8944-4259-9294-7d5019ed60ba",
+  "providerState": {
+    "providerSessionId": "7c7ce659-8944-4259-9294-7d5019ed60ba"
+  },
+  "usage": {
+    "model": "haiku",
+    "inputTokens": 27144,
+    "cacheCreationInputTokens": 0,
+    "cacheReadInputTokens": 0,
+    "contextWindow": 200000,
+    "contextTokens": 27144,
+    "percentage": 14,
+    "contextWindowIsAuthoritative": true
+  }
+}
