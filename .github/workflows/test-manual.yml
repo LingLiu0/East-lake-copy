@@ -1,0 +1,23 @@
+# Manual Test Workflow
+
+> 测试手动触发
+
+name: Test Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_message:
+        description: 'Test message'
+        required: false
+        default: 'Hello'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Test message: ${{ github.event.inputs.test_message }}"
+      - run: echo "Secrets configured:"
+      - run: echo "API_KEY exists: ${{ secrets.API_KEY != '' }}"
+      - run: echo "API_BASE exists: ${{ secrets.API_BASE != '' }}"
+      - run: echo "MODEL exists: ${{ secrets.MODEL != '' }}"
