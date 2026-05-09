@@ -132,12 +132,14 @@ CENTRAL_GROWTH_KEYWORDS = [
     "新质生产力", "新型工业化", "智能体", "AI", "Agent",
     "国务院办公厅", "国务院印发", "中共中央办公厅",
     "发改委", "工信部", "科技部", "网信办", "国家网信办",
+    "6G", "第六代", "移动通信", "5G", "通信技术",
+    "清洁能源", "能源双向赋能", "算力设施",
 ]
 
 # 排除词 - 非发展相关的新闻（更严格）
 EXCLUDE_KEYWORDS = [
     # 招聘/求职
-    '招聘', '求职', '招录',
+    '招聘', '求职', '招录', '应聘', '高薪',
     # 天气/自然灾害
     '天气', '暴雨', '高温', '寒潮', '台风', '地震',
     # 民生/娱乐
@@ -165,6 +167,9 @@ EXCLUDE_KEYWORDS = [
     '举报中心', '办公室', '委员会', '协会', '学会',
     # 技能大赛/一般性会议
     '技能大赛', '世界技能', '展演', '演出',
+    # 新闻类标题（不需要）
+    '答记者问', '一图读懂', '专家解读', '解读',
+    '发布会', '新闻联播', '快讯', '日报', '周报',
 ]
 
 
@@ -207,17 +212,12 @@ def is_relevant_policy(title: str) -> Tuple[bool, str]:
     """判断是否相关政策 - 湖北移动视角"""
     title_clean = title.strip()
 
-    # 1. 首先检查排除词
+    # 0. 首先检查排除词（最优先）
     for exc in EXCLUDE_KEYWORDS:
         if exc in title_clean:
             return False, ""
 
-    # 2. 湖北 + 发展相关 - 最高优先级
-    for kw in HUBEI_GROWTH_KEYWORDS:
-        if kw in title_clean:
-            return True, "湖北动态"
-
-    # 3. 中央重大政策（新质/数字化相关）
+    # 1. 中央重大政策（新质/数字化相关）- 优先判断
     for kw in CENTRAL_GROWTH_KEYWORDS:
         if kw in title_clean:
             # 排除其他省份
@@ -225,6 +225,11 @@ def is_relevant_policy(title: str) -> Tuple[bool, str]:
                 if prov in title_clean:
                     return False, ""
             return True, "重大政策"
+
+    # 2. 湖北 + 发展相关
+    for kw in HUBEI_GROWTH_KEYWORDS:
+        if kw in title_clean:
+            return True, "湖北动态"
 
     # 不符合条件
     return False, ""
@@ -673,9 +678,10 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
     # 获取正文内容并提取日期
     content_items = []
     target_date_only = target_date[:10]  # "2026-05-07"
+    seen_titles = set()  # 用于去重
 
-    for i, item in enumerate(unique_items[:15], 1):
-        print(f"  [{i}/{min(15, len(unique_items))}] {item.title[:35]}...")
+    for i, item in enumerate(unique_items[:20], 1):
+        print(f"  [{i}/{min(20, len(unique_items))}] {item.title[:35]}...")
         full_item = extract_content(item.url, item.source)
         if full_item:
             # 提取日期中的年月日进行比较
@@ -683,6 +689,18 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
 
             # 过滤：只保留目标日期的政策（没有日期的跳过）
             if item_date == target_date_only:
+                # 去重：基于核心关键词（去掉来源、时间等干扰词）
+                title_clean = full_item.title.replace('答记者问', '').replace('一图读懂', '').replace('专家解读', '').strip()
+                title_key = title_clean[:35]
+                if title_key in seen_titles:
+                    print(f"    ✗ 重复，跳过")
+                    continue
+                seen_titles.add(title_key)
+
+                # 重新分类：基于实际内容，而非来源
+                is_policy, category = is_relevant_policy(full_item.title)
+                full_item.category = category
+
                 content_items.append(full_item)
                 print(f"    ✓ 日期匹配: {item_date}")
             elif not item_date:
