@@ -1,14 +1,9 @@
-# Knowledge Graph Generator
-
-> 定期生成知识图谱，展示概念之间的关联
-
 name: Knowledge Graph
-
 on:
   push:
     branches: [master]
     paths:
-      - 'wiki/**/*.md'
+      - 'wiki/**'
   schedule:
     - cron: '0 2 * * *'
   workflow_dispatch:
@@ -21,18 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Generate knowledge graph
-        run: |
-          python scripts/generate_graph.py
-
-      - name: Commit graph
-        run: |
+      - run: python scripts/generate_graph.py
+      - run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add wiki/indexes/knowledge-graph.md
