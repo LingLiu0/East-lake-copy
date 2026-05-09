@@ -561,13 +561,18 @@ def generate_markdown(items: List[PolicyItem], date: str) -> str:
     return '\n'.join(lines)
 
 
-def fetch_policy(target_date: str = None) -> int:
+def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
     """获取政策
     target_date: 要获取的政策发布日期，如 "2026-05-07"
+    yesterday: 是否获取昨天的政策（用于定时任务）
     """
-    # 如果没有指定日期，默认今天
+    # 如果是定时任务（yesterday=True）或者没有指定日期，默认获取昨天
     if target_date is None:
-        target_date = datetime.now().strftime('%Y-%m-%d')
+        if yesterday:
+            # 获取昨天的政策
+            target_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        else:
+            target_date = datetime.now().strftime('%Y-%m-%d')
 
     try:
         datetime.strptime(target_date, '%Y-%m-%d')
@@ -724,13 +729,14 @@ def main():
     parser.add_argument("--daily", action="store_true", help="每日自动模式")
     parser.add_argument("--interval", type=int, default=24, help="间隔（小时）")
     parser.add_argument("--date", type=str, help="指定日期 YYYY-MM-DD")
+    parser.add_argument("--yesterday", action="store_true", help="获取昨天的政策（用于定时任务）")
 
     args = parser.parse_args()
 
     if args.daily:
         run_daily(args.interval)
     else:
-        fetch_policy(args.date)
+        fetch_policy(args.date, yesterday=args.yesterday)
 
 
 if __name__ == "__main__":
