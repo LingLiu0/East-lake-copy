@@ -420,6 +420,16 @@ def extract_content(url: str, source: str) -> Optional[PolicyItem]:
                 # 完整日期可能需要去详情页获取，这里先取年月
                 date = f"{url_date_match.group(1)}-{url_date_match.group(2)}"
 
+        # 方法2.5: 解析特殊格式 publishdate:2026/05/08（如国家网信办）
+        if not date:
+            try:
+                body_text = soup.get_text()
+                match = re.search(r'publishdate[：:]\s*(\d{4})[/\-年](\d{1,2})[/\-月](\d{1,2})', body_text)
+                if match:
+                    date = f"{match.group(1)}-{int(match.group(2)):02d}-{int(match.group(3)):02d}"
+            except:
+                pass
+
         # 方法4: 从正文提取"新华社北京 X月X日电"格式（新闻发布日）
         text_for_date = title + content
         if not date:
@@ -671,13 +681,12 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
             # 提取日期中的年月日进行比较
             item_date = full_item.date[:10] if full_item.date else ""
 
-            # 过滤：只保留目标日期的政策
+            # 过滤：只保留目标日期的政策（没有日期的跳过）
             if item_date == target_date_only:
                 content_items.append(full_item)
                 print(f"    ✓ 日期匹配: {item_date}")
             elif not item_date:
-                # 如果没提取到日期，保留（可能是网站问题）
-                content_items.append(full_item)
+                print(f"    ✗ 无日期，跳过")
             else:
                 print(f"    ✗ 日期不匹配: {item_date} != {target_date_only}")
         time.sleep(0.5)
