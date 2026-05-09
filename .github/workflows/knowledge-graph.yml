@@ -10,7 +10,7 @@ on:
     paths:
       - 'wiki/**/*.md'
   schedule:
-    - cron: '0 2 * * *'  # 每天凌晨 2 点
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 permissions:

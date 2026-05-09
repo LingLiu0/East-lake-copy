@@ -7,14 +7,10 @@ name: Daily Policy
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天凌晨 0 点（午夜12点）
+    - cron: '0 0 * * *'  # 每天凌晨 0 点
   workflow_dispatch:
   push:
     branches: [master]
-    paths-ignore:
-      - '*.md'
-      - '*.json'
-      - '*.yml'
 
 permissions:
   contents: write
@@ -45,8 +41,7 @@ jobs:
       - name: Check if new content
         id: check
         run: |
-          git status --porcelain
-          echo "new_content=$([ -n "$(git status --porcelain | grep 'raw/clippings')" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "new_content=$(git status --porcelain | grep -q 'raw/clippings' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
 
       - name: Compile knowledge base
         if: steps.check.outputs.new_content == 'true'
@@ -68,7 +63,6 @@ jobs:
 
       - name: Create summary
         run: |
-          echo "## 📰 每日政策获取完成" >> $GITHUB_STEP_SUMMARY
+          echo "## 每日政策获取完成" >> $GITHUB_STEP_SUMMARY
           echo "- 自动获取最新政策热点" >> $GITHUB_STEP_SUMMARY
           echo "- 编译新知识到 wiki" >> $GITHUB_STEP_SUMMARY
-          echo "- 输出目录: raw/clippings/" >> $GITHUB_STEP_SUMMARY

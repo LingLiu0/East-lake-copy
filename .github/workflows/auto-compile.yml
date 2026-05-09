@@ -9,7 +9,6 @@ on:
     branches: [master]
     paths:
       - 'raw/**'
-      - '!raw/clippings/**'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests beautifulsoup4 anthropic PyPDF2 python-docx
+          pip install requests beautifulsoup4 PyPDF2 python-docx
 
       - name: Compile knowledge base
         env:
