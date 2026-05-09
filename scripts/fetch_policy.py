@@ -689,13 +689,25 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
 
             # 过滤：只保留目标日期的政策（没有日期的跳过）
             if item_date == target_date_only:
-                # 去重：基于核心关键词（去掉来源、时间等干扰词）
-                title_clean = full_item.title.replace('答记者问', '').replace('一图读懂', '').replace('专家解读', '').strip()
-                title_key = title_clean[:35]
-                if title_key in seen_titles:
+                # 提取核心标题：去掉修饰词，取《》内的政策名
+                title_clean = full_item.title
+                for suffix in ['答记者问', '一图读懂', '专家解读', '解读', '全文', '发布']:
+                    title_clean = title_clean.replace(suffix, '')
+                # 提取政策名称
+                import re
+                policy_name = re.search(r'《(.+?)》', title_clean)
+                if policy_name:
+                    core_key = policy_name.group(1)[:20]  # 政策名取前20字符
+                else:
+                    core_key = title_clean.strip()[:20]
+
+                # 去重：基于政策核心名称
+                url_key = full_item.url
+                if url_key in seen_titles or core_key in seen_titles:
                     print(f"    ✗ 重复，跳过")
                     continue
-                seen_titles.add(title_key)
+                seen_titles.add(url_key)
+                seen_titles.add(core_key)
 
                 # 重新分类：基于实际内容，而非来源
                 is_policy, category = is_relevant_policy(full_item.title)
