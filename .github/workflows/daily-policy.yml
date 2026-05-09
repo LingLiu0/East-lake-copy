@@ -1,68 +1,29 @@
-# Daily Policy Fetch Workflow
-
-> 每天自动获取政策热点并编译
-> 输出：raw/clippings/YYYY-MM-DD-政策简报.md
-
 name: Daily Policy
-
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天凌晨 0 点
+    - cron: '0 0 * * *'
   workflow_dispatch:
-  push:
-    branches: [master]
-
-permissions:
-  contents: write
-
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          pip install requests beautifulsoup4
-
-      - name: Fetch policy news
+      - run: pip install requests beautifulsoup4
+      - run: python scripts/fetch_policy.py
         env:
           API_KEY: ${{ secrets.API_KEY }}
           API_BASE: ${{ secrets.API_BASE }}
           MODEL: ${{ secrets.MODEL }}
-        run: |
-          python scripts/fetch_policy.py
-
-      - name: Check if new content
-        id: check
-        run: |
-          echo "new_content=$(git status --porcelain | grep -q 'raw/clippings' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
-
-      - name: Compile knowledge base
-        if: steps.check.outputs.new_content == 'true'
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
-          API_BASE: ${{ secrets.API_BASE }}
-          MODEL: ${{ secrets.MODEL }}
-        run: |
-          python scripts/obsidian.py ai compile
-
-      - name: Commit and push
-        if: steps.check.outputs.new_content == 'true'
-        run: |
+      - run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --quiet && git diff --staged --quiet || git commit -m "feat: 每日政策热点更新 $(date '+%Y-%m-%d')"
+          git diff --quiet && git diff --staged --quiet || git commit -m "feat: 每日政策更新 $(date '+%Y-%m-%d')"
           git push
-
-      - name: Create summary
-        run: |
-          echo "## 每日政策获取完成" >> $GITHUB_STEP_SUMMARY
-          echo "- 自动获取最新政策热点" >> $GITHUB_STEP_SUMMARY
-          echo "- 编译新知识到 wiki" >> $GITHUB_STEP_SUMMARY
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          API_BASE: ${{ secrets.API_BASE }}
+          MODEL: ${{ secrets.MODEL }}
