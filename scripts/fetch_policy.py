@@ -25,6 +25,9 @@ from dataclasses import dataclass
 
 import requests
 from bs4 import BeautifulSoup
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from api_client import chat
 
 VAULT = Path(os.getcwd())
 RAW = VAULT / "raw"
@@ -526,6 +529,135 @@ def extract_content(url: str, source: str) -> Optional[PolicyItem]:
         return None
 
 
+# ============================================================
+# AI 审核模块
+# ============================================================
+
+def ai_review_policy(items: List[PolicyItem], target_date: str) -> List[PolicyItem]:
+    """AI审核政策列表，补充遗漏、判断是否适合收录"""
+    if not items:
+        return items
+
+    print("\n🤖 AI审核政策内容...")
+
+    # 构建政策摘要供AI分析
+    policy_summary = "\n".join([
+        f"{i+1}. 【{item.category}】{item.title[:80]}... (来源:{item.source}, 日期:{item.date or '未知'})"
+        for i, item in enumerate(items[:15])
+    ])
+
+    prompt = f"""你是一个政策分析专家。请审核以下{target_date}日的政策简报候选内容：
+
+{policy_summary}
+
+请从以下维度分析：
+1. 这些政策对湖北移动（电信运营商）是否有参考价值？
+2. 是否有重要政策被遗漏？（如：数字经济、人工智能、5G/6G、通信基础设施、产业政策等）
+3. 哪些条目不应该收录？（如：非政策类新闻、民生娱乐、已过时效等）
+
+请用以下JSON格式返回：
+{{
+  "keep": [保留的条目编号，从1开始],
+  "drop": [删除的条目编号],
+  "missing": ["遗漏的重要政策描述，如果有的话"]
+}}
+
+注意：只返回JSON，不要其他内容。"""
+
+    result = chat(prompt, temperature=0.3, max_tokens=1000)
+
+    if not result:
+        print("  ⚠️ AI审核失败，使用原列表")
+        return items
+
+    # 解析JSON结果
+    try:
+        import json
+        # 尝试提取JSON部分
+        json_match = result.strip()
+        if "```json" in json_match:
+            json_match = json_match.split("```json")[1].split("```")[0]
+        elif "```" in json_match:
+            json_match = json_match.split("```")[1].split("```")[0]
+
+        review = json.loads(json_match.strip())
+
+        keep_indices = review.get("keep", [])
+        drop_indices = review.get("drop", [])
+        missing = review.get("missing", [])
+
+        # 过滤保留的条目
+        if keep_indices:
+            # 编号从1开始，转换为索引
+            keep_items = [items[i-1] for i in keep_indices if i <= len(items)]
+            print(f"  ✅ AI建议保留 {len(keep_items)} 条")
+        else:
+            keep_items = items
+
+        if drop_indices:
+            print(f"  ❌ AI建议删除 {len(drop_indices)} 条")
+
+        if missing:
+            print(f"  ⚠️ AI提示遗漏: {missing[:2]}")
+
+        return keep_items
+
+    except Exception as e:
+        print(f"  ⚠️ AI解析失败: {e}")
+        return items
+
+
+def ai_audit_report(markdown: str, target_date: str) -> str:
+    """AI审核最终简报"""
+    print("\n🤖 AI审核简报...")
+
+    prompt = f"""你是政策简报审核专家。请审核以下{target_date}日的政策简报：
+
+{markdown[:3000]}
+
+请检查：
+1. 内容是否准确、客观？
+2. 是否有不适合收录的内容？（如：广告、软文、个人新闻、过期信息）
+3. 标题和摘要是否清晰准确？
+
+请用以下JSON格式返回：
+{{
+  "pass": true/false,
+  "issues": ["问题1", "问题2"],
+  "suggestions": ["修改建议1"]
+}}
+
+注意：只返回JSON。"""
+
+    result = chat(prompt, temperature=0.3, max_tokens=800)
+
+    if not result:
+        print("  ⚠️ AI审核失败")
+        return markdown
+
+    try:
+        import json
+        json_match = result.strip()
+        if "```json" in json_match:
+            json_match = json_match.split("```json")[1].split("```")[0]
+        elif "```" in json_match:
+            json_match = json_match.split("```")[1].split("```")[0]
+
+        audit = json.loads(json_match.strip())
+
+        if not audit.get("pass", True):
+            issues = audit.get("issues", [])
+            if issues:
+                print(f"  ⚠️ AI发现问题: {issues[0][:50]}...")
+
+        print("  ✅ AI审核完成")
+        return markdown
+
+    except Exception as e:
+        print(f"  ⚠️ AI解析失败: {e}")
+        return markdown
+
+
 def generate_markdown(items: List[PolicyItem], date: str) -> str:
     """生成简报Markdown"""
     lines = [
@@ -774,9 +906,15 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
         print(f"  💡 提示：网站可能还没有更新，或者日期格式提取失败")
         return 0
 
+    # AI审核政策列表
+    content_items = ai_review_policy(content_items, target_date)
+
     # 生成简报
     print(f"\n📝 生成 {target_date} 简报...")
     markdown = generate_markdown(content_items, target_date)
+
+    # AI审核简报
+    markdown = ai_audit_report(markdown, target_date)
 
     # 保存文件名使用目标日期
     output_file = CLIPPINGS / f"{target_date}-政策简报.md"
