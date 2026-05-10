@@ -184,6 +184,9 @@ EXCLUDE_KEYWORDS = [
     '开学', '毕业', '学位', '毕业论文',
     # 体育/文化活动
     '马拉松', '运动会', '体育', '文化节',
+    # 新闻报道（非政策）
+    '好评中国', '中国经济信心说', '经"彩新活力',
+    '文旅', '假日经济', '五一假期', '长假',
 ]
 
 
@@ -540,6 +543,12 @@ def generate_markdown(items: List[PolicyItem], date: str) -> str:
     hubei = [i for i in items if i.category == "湖北动态"]
     other = [i for i in items if i.category not in ["重大政策", "新质生产力", "湖北动态"]]
 
+    # 如果没有重要政策，显示提示
+    if not major and not tech and not hubei:
+        lines.append("*当日无重大政策记录*")
+        lines.append("")
+    else:
+
     # 重大政策
     if major:
         lines.append("## 一、重大政策")
@@ -586,11 +595,11 @@ def generate_markdown(items: List[PolicyItem], date: str) -> str:
             lines.append(f"- [原文]({item.url})")
             lines.append("")
 
-    # 其他
+    # 其他 - 最多2条
     if other:
-        lines.append("## 四、其他政策")
+        lines.append("## 四、其他")
         lines.append("")
-        for i, item in enumerate(other[:4], 1):
+        for i, item in enumerate(other[:2], 1):
             lines.append(f"- **{item.title}** ({item.source})")
             if item.date:
                 lines.append(f"  - 日期: {item.date}")
