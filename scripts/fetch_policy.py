@@ -707,11 +707,10 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
     content_items = []
     target_date_only = target_date[:10]  # "2026-05-07"
 
-    # 计算允许的日期范围：前后1天
+    # 计算允许的日期范围：当天和第二天（脚本通常第二天运行，新闻可能晚1天）
     try:
         target_dt = datetime.strptime(target_date_only, '%Y-%m-%d')
         date_range = [
-            (target_dt - timedelta(days=1)).strftime('%Y-%m-%d'),
             target_date_only,
             (target_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
         ]
