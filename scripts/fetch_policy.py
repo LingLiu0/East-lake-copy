@@ -243,6 +243,20 @@ def is_relevant_policy(title: str) -> Tuple[bool, str]:
     # 2. 湖北 + 发展相关
     for kw in HUBEI_GROWTH_KEYWORDS:
         if kw in title_clean:
+            # 省委常委会会议需要更细致的判断
+            if "省委常委会" in title_clean or "市委常委会" in title_clean:
+                # 重大决策/信息化相关关键词
+                major_keywords = [
+                    "数字经济", "人工智能", "科技创新", "基础研究",
+                    "新质生产力", "智能制造", "工业互联网", "算力",
+                    "数据要素", "卫星互联网", "低空经济", "6G",
+                    "高质量发展", "万亿", "GDP", "突破",
+                ]
+                for major_kw in major_keywords:
+                    if major_kw in title_clean:
+                        return True, "湖北动态"
+                # 没有重大关键词，排除
+                return False, ""
             return True, "湖北动态"
 
     # 不符合条件
@@ -692,6 +706,19 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
     # 获取正文内容并提取日期
     content_items = []
     target_date_only = target_date[:10]  # "2026-05-07"
+
+    # 计算允许的日期范围：前后1天
+    from datetime import datetime, timedelta
+    try:
+        target_dt = datetime.strptime(target_date_only, '%Y-%m-%d')
+        date_range = [
+            (target_dt - timedelta(days=1)).strftime('%Y-%m-%d'),
+            target_date_only,
+            (target_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
+        ]
+    except:
+        date_range = [target_date_only]
+
     seen_titles = set()  # 用于去重
 
     for i, item in enumerate(unique_items[:20], 1):
@@ -701,8 +728,8 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
             # 提取日期中的年月日进行比较
             item_date = full_item.date[:10] if full_item.date else ""
 
-            # 过滤：只保留目标日期的政策（没有日期的跳过）
-            if item_date == target_date_only:
+            # 过滤：只保留目标日期±1天的政策（没有日期的跳过）
+            if item_date and item_date[:10] in date_range:
                 # 提取核心标题：去掉修饰词，取《》内的政策名
                 title_clean = full_item.title
                 for suffix in ['答记者问', '一图读懂', '专家解读', '解读', '全文', '发布']:
@@ -732,7 +759,7 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
             elif not item_date:
                 print(f"    ✗ 无日期，跳过")
             else:
-                print(f"    ✗ 日期不匹配: {item_date} != {target_date_only}")
+                print(f"    ✗ 日期不匹配: {item_date} 不在 {date_range} 范围内")
         time.sleep(0.5)
 
     if not content_items:
