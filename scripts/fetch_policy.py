@@ -680,6 +680,7 @@ def generate_markdown(items: List[PolicyItem], date: str) -> str:
         lines.append("*当日无重大政策记录*")
         lines.append("")
     else:
+        pass
 
     # 重大政策
     if major:
@@ -848,13 +849,10 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
     content_items = []
     target_date_only = target_date[:10]  # "2026-05-07"
 
-    # 计算允许的日期范围：当天和第二天（脚本通常第二天运行，新闻可能晚1天）
+    # 计算允许的日期范围：只匹配目标日期当天
     try:
         target_dt = datetime.strptime(target_date_only, '%Y-%m-%d')
-        date_range = [
-            target_date_only,
-            (target_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
-        ]
+        date_range = [target_date_only]
     except:
         date_range = [target_date_only]
 
