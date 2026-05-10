@@ -708,7 +708,6 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
     target_date_only = target_date[:10]  # "2026-05-07"
 
     # 计算允许的日期范围：前后1天
-    from datetime import datetime, timedelta
     try:
         target_dt = datetime.strptime(target_date_only, '%Y-%m-%d')
         date_range = [
