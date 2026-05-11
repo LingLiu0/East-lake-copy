@@ -143,7 +143,7 @@ CENTRAL_GROWTH_KEYWORDS = [
     "清洁能源", "能源双向赋能", "算力设施",
 ]
 
-# 排除词 - 非发展相关的新闻（更严格）
+    # 排除词 - 非发展相关的新闻（更严格）
 EXCLUDE_KEYWORDS = [
     # 招聘/求职
     '招聘', '求职', '招录', '应聘', '高薪',
@@ -190,6 +190,9 @@ EXCLUDE_KEYWORDS = [
     # 新闻报道（非政策）
     '好评中国', '中国经济信心说', '经"彩新活力',
     '文旅', '假日经济', '五一假期', '长假',
+    # 经济新闻报道（不是政策）
+    '先行指标', '经济稳步向好', '经济向好',
+    '央视新闻', '新闻联播', '客户端消息',
 ]
 
 
@@ -849,7 +852,7 @@ def fetch_policy(target_date: str = None, yesterday: bool = False) -> int:
     content_items = []
     target_date_only = target_date[:10]  # "2026-05-07"
 
-    # 计算允许的日期范围：只匹配目标日期当天
+    # 计算允许的日期范围：只匹配目标日期
     try:
         target_dt = datetime.strptime(target_date_only, '%Y-%m-%d')
         date_range = [target_date_only]
