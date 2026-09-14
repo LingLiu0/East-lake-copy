@@ -10,6 +10,19 @@
 
 ---
 
+## 知识库现状
+
+| 指标 | 数量 |
+|------|------|
+| 概念节点 | 70 个 |
+| 知识摘要 | 25 篇 |
+| 双向链接 | 711 条 |
+| 检索切片 | 320 个 |
+
+> 以上为系统实测统计，可运行 `demo_show.py` 实时复现。
+
+---
+
 ## 核心理念
 
 | 传统笔记 | East-lake |
@@ -159,12 +172,13 @@ East-lake/
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/huangtao900103/East-lake.git
+git clone https://github.com/LingLiu0/East-lake-copy.git
 cd East-lake
 
-# 2. 配置 API（用于 AI 功能）
-export API_KEY="your-api-key"
+# 2. 配置 API（用于 AI 功能，移动云 MoMA 模型服务平台）
+export API_KEY="你的Key"
 export API_BASE="https://your-api-endpoint.com"
+export API_PATH="/v1/chat/completions"
 export MODEL="your-model"
 
 # 3. 添加资料
@@ -221,7 +235,7 @@ python3 scripts/fetch_policy.py
 
 - ✅ 自定义 API（兼容 OpenAI 格式）
 - ✅ Anthropic Claude
-- ✅ 移动云 Zhenze
+- ✅ 移动云 MoMA（模型服务平台，兼容 OpenAI 格式）
 - ✅ 阿里云 DashScope
 - ✅ 其他兼容 OpenAI API 的模型
 
@@ -247,5 +261,5 @@ python3 scripts/fetch_policy.py
 
 ---
 
-**GitHub**: https://github.com/huangtao900103/East-lake
+**GitHub**: https://github.com/LingLiu0/East-lake-copy
 # Daily workflow configured
