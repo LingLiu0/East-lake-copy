@@ -1,0 +1,48 @@
+{
+  "quickadd": {
+    "name": "AI Chat",
+    "type": "script",
+    "script": "obsidian-workflow.js",
+    "command": "chat"
+  },
+  "commands": [
+    {
+      "id": "ai-ask",
+      "name": "🤖 Ask AI",
+      "trigger": "hotkey",
+      "hotkey": "Ctrl+Shift+A",
+      "command": "python {{vault.path}}/scripts/obsidian_workflow.py ask"
+    },
+    {
+      "id": "ai-chat",
+      "name": "💬 AI Chat",
+      "trigger": "command-palette",
+      "command": "python {{vault.path}}/scripts/obsidian_workflow.py chat"
+    },
+    {
+      "id": "import-file",
+      "name": "📥 Import File",
+      "trigger": "hotkey",
+      "hotkey": "Ctrl+Shift+I",
+      "command": "python {{vault.path}}/scripts/obsidian_workflow.py import"
+    },
+    {
+      "id": "evolve-kb",
+      "name": "🧬 Evolve Knowledge",
+      "trigger": "command-palette",
+      "command": "python {{vault.path}}/scripts/obsidian_workflow.py evolve"
+    },
+    {
+      "id": "kb-stats",
+      "name": "📊 Knowledge Stats",
+      "trigger": "command-palette",
+      "command": "python {{vault.path}}/scripts/obsidian_workflow.py dashboard"
+    },
+    {
+      "id": "kb-gaps",
+      "name": "🔍 Knowledge Gaps",
+      "trigger": "command-palette",
+      "command": "python {{vault.path}}/scripts/obsidian_workflow.py gaps"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+# FastAPI dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-dotenv>=1.0.0
+
+# AI and embeddings
+anthropic>=0.25.0
+sentence-transformers>=2.5.0
+numpy>=1.24.0
+
+# Vector store
+faiss-cpu>=1.7.4
+
+# GitHub API
+PyGithub>=2.1.0
+
+# Caching
+aiofiles>=23.2.1
+orjson>=3.9.0
+
+# Rate limiting
+slowapi>=0.1.9
+
+# Validation
+pydantic>=2.5.0
+pydantic-settings>=2.1.0

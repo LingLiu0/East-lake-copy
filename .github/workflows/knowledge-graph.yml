@@ -1,0 +1,30 @@
+name: Knowledge Graph
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'wiki/**'
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/generate_graph.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add wiki/indexes/knowledge-graph.md
+          git diff --quiet && git diff --staged --quiet || git commit -m "ci: update knowledge graph $(date '+%Y-%m-%d')"
+          git push

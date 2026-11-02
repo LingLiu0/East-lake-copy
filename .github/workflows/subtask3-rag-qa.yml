@@ -1,0 +1,75 @@
+name: Subtask 3 RAG QA + Evolve
+# 子任务三：RAG 智能问答 + 知识库自动进化（含矛盾检测、置信度评估）
+#
+# 触发条件：
+#   - 每日 04:00 UTC（北京时间 12:00）
+#   - 手动触发（workflow_dispatch）
+#   - 新增问答/原始资料时（push to outputs/qa or raw/）
+#
+# 行为：
+#   1. 重建 chunk 索引
+#   2. 跑 auto_evolve.py --mode all（含矛盾检测 + 置信度评估）
+#   3. 健康检查（QA 引擎冒烟测试）
+#   4. 提交所有变更
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'outputs/qa/**'
+      - 'raw/**'
+      - 'templates/**'
+
+permissions:
+  contents: write
+
+jobs:
+  rag-evolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: |
+          pip install --quiet \
+            requests beautifulsoup4 anthropic PyPDF2 python-docx \
+            jieba rank_bm25 numpy
+
+      - name: 重建 chunk 索引
+        run: |
+          python scripts/chunker.py --verbose
+
+      - name: 跑自动进化（含矛盾检测 + 置信度）
+        env:
+          API_KEY: ${{ secrets.LLM_API_KEY }}
+          API_BASE: ${{ secrets.LLM_API_BASE }}
+          MODEL: ${{ secrets.LLM_MODEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python scripts/auto_evolve.py --mode all
+
+      - name: QA 引擎冒烟测试
+        run: |
+          python scripts/test_qa_engine.py
+
+      - name: 提交变更
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --quiet --staged; then
+            echo "无变更，跳过提交"
+            exit 0
+          fi
+          git commit -m "ci: subtask3 evolve (RAG QA + 矛盾检测 + 置信度) $(date '+%Y-%m-%d')"
+          git push

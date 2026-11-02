@@ -1,0 +1,15 @@
+{"query": "湖北省数字经济政策有哪些？", "expected_intent": "policy_query", "expected_keywords": ["湖北", "数字经济", "政策"]}
+{"query": "什么是新质生产力？", "expected_intent": "concept_explain", "expected_keywords": ["新质", "生产力"]}
+{"query": "5G 和 5G-A 有什么区别？", "expected_intent": "relation_analysis", "expected_keywords": ["5G", "5G-A"]}
+{"query": "算力网络怎么理解？", "expected_intent": "concept_explain", "expected_keywords": ["算力", "网络"]}
+{"query": "分析一下 2026 年数字经济趋势", "expected_intent": "synthesis", "expected_keywords": ["数字经济", "2026"]}
+{"query": "今天天气如何", "expected_intent": "fallback", "expected_keywords": []}
+{"query": "湖北 5G 政策", "expected_intent": "policy_query", "expected_keywords": ["湖北", "5G", "政策"]}
+{"query": "1+1 等于几？", "expected_intent": "fallback", "expected_keywords": []}
+{"query": "AI 产品的逻辑与普通软件有什么不同？", "expected_intent": "relation_analysis", "expected_keywords": ["AI", "产品", "软件"]}
+{"query": "推理工程化发展趋势", "expected_intent": "synthesis", "expected_keywords": ["推理", "工程化"]}
+{"query": "国家网信办对 AI 应用有什么规范？", "expected_intent": "policy_query", "expected_keywords": ["网信办", "AI", "规范"]}
+{"query": "企业 AI 战略和数字化是什么关系？", "expected_intent": "relation_analysis", "expected_keywords": ["AI", "数字化", "战略"]}
+{"query": "中国移动湖北公司工作情况", "expected_intent": "synthesis", "expected_keywords": ["湖北", "移动", "工作"]}
+{"query": "什么是大模型？", "expected_intent": "concept_explain", "expected_keywords": ["大模型"]}
+{"query": "湖北 5G 和 4G 区别", "expected_intent": "relation_analysis", "expected_keywords": ["5G", "4G"]}
